@@ -76,6 +76,7 @@ data/
 
 ### Clone the repository
 git clone <repository-url>
+
 cd knowledge-assistant
 
 ### Install dependencies
