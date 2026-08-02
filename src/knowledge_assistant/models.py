@@ -47,3 +47,36 @@ class IndexStats:
     document_count: int
     embedding_models: tuple[str, ...]
     dimensions: tuple[int, ...]
+
+@dataclass(frozen=True)
+class RetrievedContext:
+    """Retrieved evidence prepared for answer generation."""
+
+    query: str
+    results: tuple[SearchResult, ...]
+
+
+@dataclass(frozen=True)
+class GeneratedAnswer:
+    """An answer produced from retrieved evidence."""
+
+    content: str
+    provider_name: str
+    model_name: str
+    sources: tuple[SearchResult, ...]
+
+@dataclass(frozen=True)
+class Prompt:
+    """A provider-neutral prompt sent to an LLM."""
+
+    system: str
+    user: str
+
+
+@dataclass(frozen=True)
+class GenerationTrace:
+    """Complete trace of one grounded answer-generation request."""
+
+    retrieved_context: RetrievedContext
+    prompt: Prompt
+    generated_answer: GeneratedAnswer

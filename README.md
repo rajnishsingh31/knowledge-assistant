@@ -2,162 +2,448 @@
 
 A production-oriented Retrieval-Augmented Generation (RAG) application built from first principles.
 
-The goal of this project is not only to answer questions over documents, but also to demonstrate the engineering practices behind modern AI applications including document ingestion, semantic search, vector databases, clean architecture, and agentic workflows.
+The objective of this project is to understand and implement the engineering behind modern AI applications instead of relying solely on high-level frameworks. Every component—from document ingestion to grounded answer generation—is implemented incrementally using clean architecture and production software engineering practices.
 
-The project is being built incrementally, with each milestone introducing one production concept at a time.
+---
 
-## Learning Goals
+## Why this project?
 
-This project is intentionally built without relying on high-level AI frameworks in the early stages.
+Most RAG tutorials stop at:
 
-The objective is to understand how production AI systems work internally before introducing orchestration frameworks or managed services.
-
-Every component is implemented incrementally to emphasize software engineering principles such as modularity, clean architecture, immutability, separation of concerns, and testability.
-
-## Current Features
-
-- Load Markdown and text documents
-- Split documents into traceable chunks
-- Generate embeddings using Sentence Transformers
-- Store embeddings in LanceDB
-- Perform semantic search over indexed documents
-- Command-line interface for indexing and searching
-- Source citations with document names and line numbers
-    
-## Architecture
-
-```text
-                 CLI
-                  │
-        ┌─────────┴─────────┐
-        │                   │
-     Ingest              Search
-        │                   │
-        ▼                   ▼
-Document Loader        Retriever
-        │                   │
-        ▼                   ▼
-     Chunker         Embedding Provider
-        │                   │
-        └─────────┬─────────┘
-                  ▼
-          LanceDB Vector Store
-                  │
-                  ▼
-            Search Results
+```
+Document → Embedding → LLM
 ```
 
-## Technology Stack
+This project focuses on building the underlying platform:
 
-- Python 3.13
-- uv
-- Sentence Transformers
-- LanceDB
-- Apache Arrow
+* Modular architecture
+* Provider abstraction
+* Explainable retrieval
+* Grounded answer generation
+* Clean separation of domain and infrastructure
+* Local-first development
 
-## Project Structure
+The long-term goal is to evolve this into a production-ready AI platform supporting hybrid retrieval, reranking, evaluation, memory, and agentic workflows.
+
+---
+
+# Current Features
+
+## Document Ingestion
+
+* Load Markdown (`.md`) and text (`.txt`) documents
+* Chunk documents while preserving source location
+* Track document IDs and chunk IDs
+
+## Embeddings
+
+* Local embeddings using Sentence Transformers
+* Strategy Pattern for embedding providers
+* Provider-independent architecture
+
+## Vector Database
+
+* LanceDB
+* Apache Arrow storage
+* Semantic vector search
+
+## Retrieval
+
+* Semantic similarity search
+* Traceable document chunks
+* Source line numbers
+* Configurable Top-K retrieval
+
+## Grounded Answer Generation
+
+* Local LLM using Ollama
+* Prompt construction from retrieved evidence
+* Source citations
+* Provider abstraction (`LLMProvider`)
+
+## Explainability
+
+* Explain complete RAG execution
+* Retrieved chunks
+* Prompt sent to the model
+* Generated answer
+* Active provider configuration
+
+## CLI
+
+* ingest
+* search
+* ask
+* explain
+* stats
+* inspect
+
+---
+
+# Architecture
 
 ```text
-src/
-    knowledge_assistant/
-        chunking.py
-        document_loader.py
-        embeddings.py
-        formatters.py
-        main.py
-        models.py
-        retrieval.py
-        vector_store.py
-documents/
-data/
+                        Knowledge Assistant
+
+                           CLI Commands
+                                 │
+      ┌──────────────┬────────────┼──────────────┬──────────────┐
+      │              │            │              │              │
+   ingest         search         ask         explain        inspect
+      │              │            │              │              │
+      └──────────────┴────────────┴──────────────┘──────────────┘
+                                 │                  
+                                 ▼
+                          Document Loader
+                                 │
+                                 ▼
+                              Chunker
+                                 │
+                                 ▼
+                       Embedding Provider
+                     (Sentence Transformers)
+                                 │
+                                 ▼
+                           LanceDB Store
+                                 │
+                                 ▼
+                             Retriever
+                                 │
+                                 ▼
+                        Retrieved Context
+                                 │
+                                 ▼
+                          Prompt Builder
+                                 │
+                                 ▼
+                               Prompt
+                                 │
+                      ┌──────────┴──────────┐
+                      │                     │
+                Ollama Provider      OpenAI Provider
+                   (Current)        (*Can be extended)
+                      │
+                      ▼
+              Grounded Answer
 ```
 
-## Getting Started
+---
 
-### Clone the repository
+# Technology Stack
+
+| Component       | Technology            |
+| --------------- | --------------------- |
+| Language        | Python 3.13           |
+| Package Manager | uv                    |
+| Embeddings      | Sentence Transformers |
+| Vector Database | LanceDB               |
+| Storage Format  | Apache Arrow          |
+| Local LLM       | Ollama                |
+| Default Model   | qwen3:1.7b            |
+| CLI             | argparse              |
+
+---
+
+# Project Structure
+
+```
+knowledge-assistant/
+
+├── documents/
+├── src/
+│   └── knowledge_assistant/
+│       ├── answering.py
+│       ├── chunking.py
+│       ├── document_loader.py
+│       ├── embeddings.py
+│       ├── formatters.py
+│       ├── llm.py
+│       ├── main.py
+│       ├── models.py
+│       ├── prompt_builder.py
+│       ├── retrieval.py
+│       └── vector_store.py
+│
+├── pyproject.toml
+├── uv.lock
+├── README.md
+└── .gitignore
+```
+
+---
+
+# Prerequisites
+
+| Requirement | Version                 |
+| ----------- | ----------------------- |
+| Python      | 3.13                    |
+| uv          | Latest                  |
+| Ollama      | Latest                  |
+| OS          | Linux / WSL recommended |
+
+---
+
+# Installation
+
+Clone the repository:
+
+```bash
 git clone <repository-url>
-
 cd knowledge-assistant
+```
 
-### Install dependencies
+Install dependencies:
+
+```bash
 uv sync
-
-### CLI Commands
-
-### Build or rebuild the vector index
-
-- Indexes all supported documents in the default documents/ folder.
-  - uv run knowledge-assistant ingest
-- Index a specific document:
-  - uv run knowledge-assistant ingest documents/python-basics.md
-- Index a different folder:
-  - uv run knowledge-assistant ingest ./my-notes
-
-### Search the knowledge base
-
-- Search using natural language:
-  - uv run knowledge-assistant search "What is Retrieval-Augmented Generation?"
-- Limit the number of returned chunks:
-  - uv run knowledge-assistant search "What is BM25?" --limit 5
-
-### View index statistics
-
-- Display summary information about the vector index.
-  - uv run knowledge-assistant stats
-    - Example output:
-```text
-        Table: knowledge_chunks_minilm_v1
-        Chunks: 52
-        Documents: 8
-        Models: sentence-transformers/all-MiniLM-L6-v2
-        Dimensions: (384,)
-        Inspect indexed chunks
 ```
-### Display indexed chunks without performing a search.
-  - uv run knowledge-assistant inspect
-  
-  Limit the number of displayed chunks:
-  - uv run knowledge-assistant inspect --limit 3
 
-## Example
-```text
-$ uv run knowledge-assistant search "What does BM25 do?"
+---
 
-1. bm25.md
-Lines: 15-24
-Distance: 0.89
+# Local LLM Setup (Ollama)
 
-BM25 is a lexical ranking algorithm that performs well for exact
-keywords, identifiers, API names and error codes.
+The `ask` and `explain` commands use a locally running Large Language Model through Ollama.
+
+## Install Ollama
+
+Official installation:
+
+https://ollama.com/download
+
+Linux / WSL:
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
 ```
-## Roadmap
 
-### Phase 1 – Retrieval Foundation ✅
-- Document Loader
-- Chunking
-- Embeddings
-- LanceDB Integration
-- Semantic Search
-- CLI
+If installation reports a missing `zstd` dependency:
 
-### Phase 2 – Answer Generation
-- Prompt Builder
-- LLM Integration
-- Grounded Responses
-- Citations
+```bash
+sudo apt update
+sudo apt install zstd
+```
 
-### Phase 3 – Advanced Retrieval
-- Hybrid Search (BM25 + Vector)
-- Reranking
-- Metadata Filtering
-- Retrieval Evaluation
+---
 
-### Phase 4 – Agentic Workflows
-- Tool Calling
-- Planning
-- Memory
-- Multi-step Reasoning
+## Start Ollama
 
-## License
+```bash
+ollama serve
+```
 
-MIT
+Leave this terminal running.
+
+---
+
+## Download the default model
+
+```bash
+ollama pull qwen3:1.7b
+```
+
+---
+
+## Verify Ollama
+
+```bash
+ollama run qwen3:1.7b
+```
+
+Example:
+
+```
+What is Retrieval-Augmented Generation?
+```
+
+Exit:
+
+```
+/bye
+```
+
+---
+
+# Build the Vector Index
+
+Index the default documents:
+
+```bash
+uv run knowledge-assistant ingest
+```
+
+Index a single document:
+
+```bash
+uv run knowledge-assistant ingest documents/python-basics.md
+```
+
+Index a different folder:
+
+```bash
+uv run knowledge-assistant ingest ./my-notes
+```
+
+---
+
+# CLI Commands
+
+## Semantic Search
+
+```bash
+uv run knowledge-assistant search "What is BM25?"
+```
+
+Specify the number of retrieved chunks:
+
+```bash
+uv run knowledge-assistant search "What is BM25?" --limit 5
+```
+
+---
+
+## Grounded Question Answering
+
+```bash
+uv run knowledge-assistant ask "What is BM25 and when is it useful?"
+```
+
+---
+
+## Explain the Complete RAG Pipeline
+
+```bash
+uv run knowledge-assistant explain "What is BM25?"
+```
+
+Shows:
+
+* retrieved chunks
+* retrieval configuration
+* prompt sent to the model
+* generated answer
+* provider information
+
+---
+
+## View Index Statistics
+
+```bash
+uv run knowledge-assistant stats
+```
+
+Example:
+
+```
+Table: knowledge_chunks_minilm_v1
+Chunks: 52
+Documents: 8
+Embedding Model: sentence-transformers/all-MiniLM-L6-v2
+Dimensions: (384,)
+```
+
+---
+
+## Inspect Indexed Chunks
+
+```bash
+uv run knowledge-assistant inspect
+```
+
+Limit output:
+
+```bash
+uv run knowledge-assistant inspect --limit 3
+```
+
+---
+
+# Configuration
+
+Current defaults:
+
+```
+OLLAMA_HOST=http://localhost:11434
+OLLAMA_MODEL=qwen3:1.7b
+```
+
+Future versions will support OpenAI-compatible providers without requiring architectural changes.
+
+---
+
+# Example
+
+```text
+$ uv run knowledge-assistant ask \
+"What is BM25?"
+
+BM25 is a lexical retrieval algorithm that performs well for
+exact identifiers, API names and error codes.
+
+Sources
+
+1.
+bm25.md
+Lines 14-22
+
+Generated by:
+ollama / qwen3:1.7b
+```
+
+---
+
+# Engineering Decisions
+
+This project intentionally emphasizes software engineering over framework usage.
+
+Key design principles include:
+
+* Clean Architecture
+* Strategy Pattern
+* Immutable domain models
+* Separation of concerns
+* Provider abstraction
+* Local-first development
+* Explainable AI
+* Testability
+
+---
+
+# Roadmap
+
+## Version 0.1 ✅
+
+* Document ingestion
+* Chunking
+* Local embeddings
+* LanceDB integration
+* Semantic search
+* Grounded answer generation
+* Ollama provider
+* Explainable retrieval
+* CLI
+
+## Planned
+
+* OpenAI provider
+* Hybrid Search (BM25 + Vector)
+* Reranking
+* Retrieval evaluation
+* Metadata filtering
+* Conversation memory
+* REST API
+* Multi-document reasoning
+* Agentic workflows
+
+---
+
+# Contributing
+
+Issues, suggestions, and pull requests are welcome.
+
+The project is intentionally being developed incrementally to demonstrate production AI engineering practices.
+
+---
+
+# License
+
+MIT License

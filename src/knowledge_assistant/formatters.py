@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from knowledge_assistant.models import IndexStats, SearchResult
+from knowledge_assistant.models import IndexStats, SearchResult, SearchResult, GenerationTrace
 
 
 class ConsoleFormatter:
@@ -82,3 +82,60 @@ class ConsoleFormatter:
             )
 
         return "\n\n".join(sections)
+
+    @staticmethod
+    def format_generation_trace(
+        trace: GenerationTrace,
+        embedding_model_name: str,
+        retrieval_limit: int,
+    ) -> str:
+
+        """Format the complete RAG execution trace."""
+
+        answer = trace.generated_answer
+        context = trace.retrieved_context
+        prompt = trace.prompt
+
+        retrieved_results = ConsoleFormatter.format_search_results(
+            list(context.results)
+        )
+
+        separator = "=" * 70
+
+        return "\n".join(
+            [
+                separator,
+                "Knowledge Assistant — Explain",
+                separator,
+                "",
+                "QUESTION",
+                "-" * 70,
+                context.query,
+                "",
+                "CONFIGURATION",
+                "-" * 70,
+                f"Retrieval strategy: Vector search",
+                f"Retrieval limit: {retrieval_limit}",
+                f"Embedding model: {embedding_model_name}",
+                f"LLM provider: {answer.provider_name}",
+                f"LLM model: {answer.model_name}",
+                "",
+                "RETRIEVED CHUNKS",
+                "-" * 70,
+                retrieved_results,
+                "",
+                "SYSTEM PROMPT",
+                "-" * 70,
+                prompt.system,
+                "",
+                "USER PROMPT",
+                "-" * 70,
+                prompt.user,
+                "",
+                "GENERATED ANSWER",
+                "-" * 70,
+                answer.content,
+                "",
+                separator,
+            ]
+    )
