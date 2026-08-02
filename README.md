@@ -27,8 +27,6 @@ Every component is implemented incrementally to emphasize software engineering p
 ## Architecture
 
 ```text
-                Knowledge Assistant
-
                  CLI
                   │
         ┌─────────┴─────────┐
