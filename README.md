@@ -6,7 +6,6 @@ Knowledge Assistant indexes local documents and supports semantic search, keywor
 
 The project intentionally avoids high-level AI orchestration frameworks in its early stages. Its purpose is to demonstrate the engineering behind production RAG systems, including provider abstraction, dependency injection, typed configuration, retrieval strategies, citations, and pipeline explainability.
 
-Before introducing new retrieval algorithms such as reranking, the project establishes an offline evaluation framework to measure retrieval quality objectively. This allows improvements to be validated using reproducible metrics rather than subjective observation.
 
 ---
 
@@ -74,24 +73,26 @@ Before introducing new retrieval algorithms such as reranking, the project estab
                                ▼
                  KnowledgeAssistantApplication
                                │
-             ┌─────────────────┼─────────────────┐
-             │                 │                 │
-          Ingestion         Retrieval         Answering
-             │                 │                 │
-             ▼                 ▼                 ▼
-      Document Loader       Retriever       AnswerService
-             │                 │                 │
-             ▼                 ▼                 ▼
-          Chunker      RetrievalStrategy    PromptBuilder
-             │          ┌──────┼──────┐          │
-             ▼          │      │      │          ▼
-   EmbeddingProvider  Vector  BM25  Hybrid     Prompt
-             │                        │          │
-             ▼                        ▼          ▼
-     Sentence Transformers           RRF     LLMProvider
-             │                                   │
-             ▼                                   ▼
-        LanceDB Store                       OllamaProvider
+       ┌──────────────┬────────┴────────┬──────────────┐
+       │              │                 │              │
+       ▼              ▼                 ▼              ▼
+   Ingestion      Retrieval        Answering      Evaluation
+       │              │                 │              │
+       ▼              ▼                 ▼              ▼
+Document Loader   Retriever       AnswerService  RetrievalEvaluator
+       │              │                 │              │
+       ▼              ▼                 ▼              ▼
+    Chunker   RetrievalStrategy   PromptBuilder   Evaluation Dataset
+       │       ┌─────┼─────┐            │              │
+       ▼       │     │     │            ▼              ▼
+Embedding   Vector  BM25 Hybrid      Prompt        Metrics
+Provider       │      │     │            │
+       ▼       └──────┴─────┘            ▼
+Sentence         Reciprocal Rank      LLMProvider
+Transformers          Fusion              │
+       │                                  ▼
+       ▼                           OllamaProvider
+  LanceDB
 ```
 
 ### Dependency construction
@@ -149,6 +150,7 @@ knowledge-assistant/
 │       ├── config.py
 │       ├── document_loader.py
 │       ├── embeddings.py
+│       │── evaluation.py 
 │       ├── formatters.py
 │       ├── llm.py
 │       ├── main.py
@@ -157,6 +159,8 @@ knowledge-assistant/
 │       ├── retrieval.py
 │       └── vector_store.py
 ├── tests/
+├── evaluations/
+│   └── retrieval.json
 ├── .env.example
 ├── .gitignore
 ├── .python-version
@@ -678,6 +682,10 @@ Domain models such as `Chunk` and `Embedding` remain independent of LanceDB. The
 ### Explainability
 
 The `explain` command exposes retrieval and generation inputs so incorrect answers can be traced to retrieval quality, prompt construction, or model behavior.
+
+### Measuring Retrieval Quality 
+
+Before introducing new retrieval algorithms such as reranking, the project establishes an offline evaluation framework to measure retrieval quality objectively. This allows improvements to be validated using reproducible metrics rather than subjective observation.
 
 ---
 
