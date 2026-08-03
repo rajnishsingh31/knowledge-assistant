@@ -932,12 +932,11 @@ uv run knowledge-assistant evaluate \
 * Pipeline latency metrics
 * Unit test suite
 * PDF, Excel and Word support
+* Incremental document ingestion
+* Metadata filtering
 
 ### Later
 
-* Incremental document ingestion
-* Metadata filtering
-* OpenAI provider
 * Conversation memory
 * REST API
 * Web interface
