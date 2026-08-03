@@ -18,20 +18,31 @@ class ConsoleFormatter:
         for index, result in enumerate(results, start=1):
             chunk = result.chunk
 
-            sections.append(
-                "\n".join(
-                    [
-                        f"{index}. {chunk.source_path.name}",
-                        (
-                            f"Lines: "
-                            f"{chunk.start_line}-{chunk.end_line}"
-                        ),
-                        f"Distance: {result.distance:.4f}",
-                        "-" * 60,
-                        chunk.content,
-                    ]
+            lines = [
+                f"{index}. {chunk.source_path.name}",
+                f"Lines: {chunk.start_line}-{chunk.end_line}",
+                f"Method: {result.retrieval_method}",
+                f"Score: {result.score:.6f}",
+            ]
+
+            if result.vector_distance is not None:
+                lines.append(
+                    f"Vector distance: {result.vector_distance:.4f}"
                 )
+
+            if result.bm25_score is not None:
+                lines.append(
+                    f"BM25 score: {result.bm25_score:.4f}"
+                )
+
+            lines.extend(
+                [
+                    "-" * 60,
+                    chunk.content,
+                ]
             )
+
+            sections.append("\n".join(lines))
 
         return "\n\n".join(sections)
 
@@ -87,7 +98,6 @@ class ConsoleFormatter:
     def format_generation_trace(
         trace: GenerationTrace,
         embedding_model_name: str,
-        retrieval_limit: int,
     ) -> str:
 
         """Format the complete RAG execution trace."""
@@ -115,7 +125,7 @@ class ConsoleFormatter:
                 "CONFIGURATION",
                 "-" * 70,
                 f"Retrieval strategy: Vector search",
-                f"Retrieval limit: {retrieval_limit}",
+                f"Retrieval limit: {len(context.results)}",
                 f"Embedding model: {embedding_model_name}",
                 f"LLM provider: {answer.provider_name}",
                 f"LLM model: {answer.model_name}",

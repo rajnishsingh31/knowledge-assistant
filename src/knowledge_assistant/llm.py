@@ -37,9 +37,11 @@ class OllamaProvider(LLMProvider):
         self,
         model_name: str = DEFAULT_OLLAMA_MODEL,
         host: str = DEFAULT_OLLAMA_HOST,
+        temperature: float = 0.0,
     ) -> None:
         self._model_name = model_name
         self._client = Client(host=host)
+        self._temperature = temperature
 
     @property
     def provider_name(self) -> str:
@@ -66,9 +68,12 @@ class OllamaProvider(LLMProvider):
                 },
             ],
             options={
-                "temperature": 0,
+                "temperature": self._temperature,
             },
         )
+
+        if response.message.content is None:
+            raise ValueError("Model returned no content")
 
         content = response.message.content.strip()
 

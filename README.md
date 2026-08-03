@@ -1,159 +1,141 @@
-# Knowledge Assistant – Building a Production RAG System from First Principles
+# Knowledge Assistant
 
-A production-oriented Retrieval-Augmented Generation (RAG) application built from first principles.
+**A local-first, explainable RAG system built from first principles.**
 
-The objective of this project is to understand and implement the engineering behind modern AI applications instead of relying solely on high-level frameworks. Every component—from document ingestion to grounded answer generation—is implemented incrementally using clean architecture and production software engineering practices.
+Knowledge Assistant indexes local documents and supports semantic search, keyword search, hybrid retrieval, and grounded question answering using a locally hosted LLM.
 
----
-
-## Why this project?
-
-Most RAG tutorials stop at:
-
-```
-Document → Embedding → LLM
-```
-
-This project focuses on building the underlying platform:
-
-* Modular architecture
-* Provider abstraction
-* Explainable retrieval
-* Grounded answer generation
-* Clean separation of domain and infrastructure
-* Local-first development
-
-The long-term goal is to evolve this into a production-ready AI platform supporting hybrid retrieval, reranking, evaluation, memory, and agentic workflows.
+The project intentionally avoids high-level AI orchestration frameworks in its early stages. Its purpose is to demonstrate the engineering behind production RAG systems, including provider abstraction, dependency injection, typed configuration, retrieval strategies, citations, and pipeline explainability.
 
 ---
 
-# Current Features
+## Current Capabilities
 
-## Document Ingestion
+### Document ingestion
 
-* Load Markdown (`.md`) and text (`.txt`) documents
-* Chunk documents while preserving source location
-* Track document IDs and chunk IDs
+* Load Markdown (`.md`) and plain-text (`.txt`) files
+* Ingest one file, a directory, or the configured default directory
+* Generate stable document and chunk identifiers
+* Preserve source file and line-number metadata
+* Create overlapping, line-based chunks
 
-## Embeddings
+### Embeddings and storage
 
-* Local embeddings using Sentence Transformers
-* Strategy Pattern for embedding providers
-* Provider-independent architecture
+* Generate embeddings locally using Sentence Transformers
+* Use a provider-neutral `EmbeddingProvider` abstraction
+* Store chunks, vectors, and citation metadata in LanceDB
+* Create a LanceDB full-text-search index during ingestion
+* Inspect stored chunks and index statistics
 
-## Vector Database
+### Retrieval
 
-* LanceDB
-* Apache Arrow storage
-* Semantic vector search
+* Vector similarity search
+* BM25 full-text search
+* Hybrid retrieval
+* Reciprocal Rank Fusion (RRF)
+* Configurable retrieval strategy
+* Per-command retrieval strategy override
+* Configurable candidate and result limits
 
-## Retrieval
+### Answer generation
 
-* Semantic similarity search
-* Traceable document chunks
-* Source line numbers
-* Configurable Top-K retrieval
+* Generate answers locally through Ollama
+* Use a provider-neutral `LLMProvider` abstraction
+* Construct prompts from retrieved evidence
+* Require answers to remain grounded in supplied context
+* Display supporting source chunks and line numbers
+* Keep retrieval commands independent of the LLM
 
-## Grounded Answer Generation
+### Explainability
 
-* Local LLM using Ollama
-* Prompt construction from retrieved evidence
-* Source citations
-* Provider abstraction (`LLMProvider`)
-
-## Explainability
-
-* Explain complete RAG execution
-* Retrieved chunks
-* Prompt sent to the model
-* Generated answer
-* Active provider configuration
-
-## CLI
-
-* ingest
-* search
-* ask
-* explain
-* stats
-* inspect
+* Display retrieved chunks and ranking metadata
+* Display vector distance and BM25 score when available
+* Display the complete system and user prompts
+* Display the configured embedding model and LLM
+* Display the final generated answer
 
 ---
 
-# Architecture
+## Architecture
 
 ```text
-                        Knowledge Assistant
-
-                           CLI Commands
-                                 │
-      ┌──────────────┬────────────┼──────────────┬──────────────┐
-      │              │            │              │              │
-   ingest         search         ask         explain        inspect
-      │              │            │              │              │
-      └──────────────┴────────────┴──────────────┘──────────────┘
-                                 │                  
-                                 ▼
-                          Document Loader
-                                 │
-                                 ▼
-                              Chunker
-                                 │
-                                 ▼
-                       Embedding Provider
-                     (Sentence Transformers)
-                                 │
-                                 ▼
-                           LanceDB Store
-                                 │
-                                 ▼
-                             Retriever
-                                 │
-                                 ▼
-                        Retrieved Context
-                                 │
-                                 ▼
-                          Prompt Builder
-                                 │
-                                 ▼
-                               Prompt
-                                 │
-                      ┌──────────┴──────────┐
-                      │                     │
-                Ollama Provider      OpenAI Provider
-                   (Current)        (*Can be extended)
-                      │
-                      ▼
-              Grounded Answer
+                              CLI
+                               │
+                               ▼
+                 KnowledgeAssistantApplication
+                               │
+             ┌─────────────────┼─────────────────┐
+             │                 │                 │
+          Ingestion         Retrieval         Answering
+             │                 │                 │
+             ▼                 ▼                 ▼
+      Document Loader       Retriever       AnswerService
+             │                 │                 │
+             ▼                 ▼                 ▼
+          Chunker      RetrievalStrategy    PromptBuilder
+             │          ┌──────┼──────┐          │
+             ▼          │      │      │          ▼
+   EmbeddingProvider  Vector  BM25  Hybrid     Prompt
+             │                        │          │
+             ▼                        ▼          ▼
+     Sentence Transformers           RRF     LLMProvider
+             │                                   │
+             ▼                                   ▼
+        LanceDB Store                       OllamaProvider
 ```
+
+### Dependency construction
+
+```text
+Settings
+   │
+   ▼
+bootstrap.py
+   │
+   ├── EmbeddingProvider
+   ├── LanceDBVectorStore
+   ├── RetrievalStrategy implementations
+   ├── Retriever
+   ├── LLMProvider
+   ├── AnswerService
+   └── KnowledgeAssistantApplication
+```
+
+`bootstrap.py` is the composition root. Application services receive dependencies through their constructors rather than constructing infrastructure implementations internally.
 
 ---
 
-# Technology Stack
+## Technology Stack
 
-| Component       | Technology            |
-| --------------- | --------------------- |
-| Language        | Python 3.13           |
-| Package Manager | uv                    |
-| Embeddings      | Sentence Transformers |
-| Vector Database | LanceDB               |
-| Storage Format  | Apache Arrow          |
-| Local LLM       | Ollama                |
-| Default Model   | qwen3:1.7b            |
-| CLI             | argparse              |
+| Area                    | Technology             |
+| ----------------------- | ---------------------- |
+| Language                | Python 3.13            |
+| Package management      | uv                     |
+| Configuration           | Pydantic Settings      |
+| Local embeddings        | Sentence Transformers  |
+| Default embedding model | `all-MiniLM-L6-v2`     |
+| Vector database         | LanceDB                |
+| Keyword retrieval       | LanceDB BM25/FTS       |
+| Rank fusion             | Reciprocal Rank Fusion |
+| Local LLM runtime       | Ollama                 |
+| Default LLM             | `qwen3:1.7b`           |
+| CLI                     | argparse               |
+| Columnar data           | Apache Arrow           |
 
 ---
 
-# Project Structure
+## Project Structure
 
-```
+```text
 knowledge-assistant/
-
 ├── documents/
+│   └── *.md
 ├── src/
 │   └── knowledge_assistant/
 │       ├── answering.py
+│       ├── application.py
+│       ├── bootstrap.py
 │       ├── chunking.py
+│       ├── config.py
 │       ├── document_loader.py
 │       ├── embeddings.py
 │       ├── formatters.py
@@ -163,27 +145,33 @@ knowledge-assistant/
 │       ├── prompt_builder.py
 │       ├── retrieval.py
 │       └── vector_store.py
-│
+├── tests/
+├── .env.example
+├── .gitignore
+├── .python-version
 ├── pyproject.toml
 ├── uv.lock
-├── README.md
-└── .gitignore
+└── README.md
 ```
 
----
-
-# Prerequisites
-
-| Requirement | Version                 |
-| ----------- | ----------------------- |
-| Python      | 3.13                    |
-| uv          | Latest                  |
-| Ollama      | Latest                  |
-| OS          | Linux / WSL recommended |
+The generated LanceDB index is stored under `data/` and is not committed to Git.
 
 ---
 
-# Installation
+## Prerequisites
+
+| Requirement      | Recommended version    |
+| ---------------- | ---------------------- |
+| Python           | 3.13                   |
+| uv               | Current stable version |
+| Ollama           | Current stable version |
+| Operating system | Linux or WSL           |
+
+The retrieval commands work without Ollama. Ollama is required only for `ask` and `explain`.
+
+---
+
+## Installation
 
 Clone the repository:
 
@@ -192,140 +180,314 @@ git clone <repository-url>
 cd knowledge-assistant
 ```
 
-Install dependencies:
+Create the project environment and install dependencies:
 
 ```bash
 uv sync
 ```
 
----
-
-# Local LLM Setup (Ollama)
-
-The `ask` and `explain` commands use a locally running Large Language Model through Ollama.
-
-## Install Ollama
-
-Official installation:
-
-https://ollama.com/download
-
-Linux / WSL:
+Verify Python:
 
 ```bash
-curl -fsSL https://ollama.com/install.sh | sh
+uv run python --version
 ```
 
-If installation reports a missing `zstd` dependency:
+Expected:
+
+```text
+Python 3.13.x
+```
+
+---
+
+## Local LLM Setup
+
+The `ask` and `explain` commands use a locally running Ollama model.
+
+### Install Ollama on Linux or WSL
+
+If required, install `zstd` first:
 
 ```bash
 sudo apt update
 sudo apt install zstd
 ```
 
----
+Install Ollama:
 
-## Start Ollama
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+Verify the installation:
+
+```bash
+ollama --version
+```
+
+### Start Ollama
 
 ```bash
 ollama serve
 ```
 
-Leave this terminal running.
+If port `11434` is already in use, an Ollama server may already be running.
 
----
+Check available models:
 
-## Download the default model
+```bash
+ollama list
+```
+
+### Download the default model
 
 ```bash
 ollama pull qwen3:1.7b
 ```
 
----
-
-## Verify Ollama
+Test it directly:
 
 ```bash
 ollama run qwen3:1.7b
 ```
 
-Example:
+Exit the interactive session with:
 
-```
-What is Retrieval-Augmented Generation?
-```
-
-Exit:
-
-```
+```text
 /bye
+```
+
+### Ollama process commands
+
+Show currently loaded models:
+
+```bash
+ollama ps
+```
+
+Unload the model while keeping the server available:
+
+```bash
+ollama stop qwen3:1.7b
+```
+
+When Ollama was started manually with `ollama serve`, stop the server using `Ctrl+C` in that terminal.
+
+---
+
+## Configuration
+
+The application uses typed settings with sensible defaults. Configuration can be overridden through a local `.env` file or environment variables.
+
+Copy the example file:
+
+```bash
+cp .env.example .env
+```
+
+Example configuration:
+
+```dotenv
+KNOWLEDGE_ASSISTANT_DOCUMENTS__PATH=documents
+KNOWLEDGE_ASSISTANT_DOCUMENTS__MAX_CHUNK_LINES=8
+KNOWLEDGE_ASSISTANT_DOCUMENTS__OVERLAP_LINES=2
+
+KNOWLEDGE_ASSISTANT_EMBEDDINGS__PROVIDER=sentence-transformers
+KNOWLEDGE_ASSISTANT_EMBEDDINGS__MODEL_NAME=sentence-transformers/all-MiniLM-L6-v2
+
+KNOWLEDGE_ASSISTANT_VECTOR_STORE__PROVIDER=lancedb
+KNOWLEDGE_ASSISTANT_VECTOR_STORE__DATABASE_PATH=data/lancedb
+KNOWLEDGE_ASSISTANT_VECTOR_STORE__TABLE_NAME=knowledge_chunks_minilm_v1
+
+KNOWLEDGE_ASSISTANT_RETRIEVAL__STRATEGY=hybrid
+KNOWLEDGE_ASSISTANT_RETRIEVAL__DEFAULT_LIMIT=3
+KNOWLEDGE_ASSISTANT_RETRIEVAL__CANDIDATE_LIMIT=10
+KNOWLEDGE_ASSISTANT_RETRIEVAL__RRF_K=60
+
+KNOWLEDGE_ASSISTANT_LLM__PROVIDER=ollama
+KNOWLEDGE_ASSISTANT_LLM__MODEL_NAME=qwen3:1.7b
+KNOWLEDGE_ASSISTANT_LLM__OLLAMA_HOST=http://localhost:11434
+KNOWLEDGE_ASSISTANT_LLM__TEMPERATURE=0
+```
+
+Do not commit `.env`. Commit only `.env.example`.
+
+---
+
+## CLI Help
+
+Display application-level help:
+
+```bash
+uv run knowledge-assistant --help
+```
+
+Expected command groups:
+
+```text
+ingest
+search
+ask
+explain
+stats
+inspect
+```
+
+Display help for a specific command:
+
+```bash
+uv run knowledge-assistant ingest --help
+```
+
+```bash
+uv run knowledge-assistant search --help
+```
+
+```bash
+uv run knowledge-assistant ask --help
+```
+
+```bash
+uv run knowledge-assistant explain --help
+```
+
+```bash
+uv run knowledge-assistant inspect --help
 ```
 
 ---
 
-# Build the Vector Index
+## CLI Commands
 
-Index the default documents:
+### Ingest documents
+
+Index the configured default documents directory:
 
 ```bash
 uv run knowledge-assistant ingest
 ```
 
-Index a single document:
+Index one file:
 
 ```bash
 uv run knowledge-assistant ingest documents/python-basics.md
 ```
 
-Index a different folder:
+Index another directory:
 
 ```bash
 uv run knowledge-assistant ingest ./my-notes
 ```
 
+Ingestion currently rebuilds the configured vector table from the supplied source. Incremental upsert is planned.
+
 ---
 
-# CLI Commands
+### Search documents
 
-## Semantic Search
+Use the configured retrieval strategy:
 
 ```bash
 uv run knowledge-assistant search "What is BM25?"
 ```
 
-Specify the number of retrieved chunks:
+Limit the number of results:
 
 ```bash
-uv run knowledge-assistant search "What is BM25?" --limit 5
+uv run knowledge-assistant search \
+"What is BM25?" \
+--limit 5
 ```
+
+Use vector retrieval:
+
+```bash
+uv run knowledge-assistant search \
+"How does the system find text with similar meaning?" \
+--strategy vector
+```
+
+Use BM25 retrieval:
+
+```bash
+uv run knowledge-assistant search \
+"CreateSubmissionAsync" \
+--strategy bm25
+```
+
+Use hybrid retrieval:
+
+```bash
+uv run knowledge-assistant search \
+"Why is BM25 useful for error codes?" \
+--strategy hybrid
+```
+
+Supported strategies:
+
+```text
+vector
+bm25
+hybrid
+```
+
+When `--strategy` is omitted, the application uses the configured strategy.
 
 ---
 
-## Grounded Question Answering
+### Ask a grounded question
 
 ```bash
-uv run knowledge-assistant ask "What is BM25 and when is it useful?"
+uv run knowledge-assistant ask \
+"What is BM25 and when is it useful?"
 ```
+
+Specify the maximum number of source chunks:
+
+```bash
+uv run knowledge-assistant ask \
+"What is BM25 and when is it useful?" \
+--limit 5
+```
+
+The output contains:
+
+* a generated answer,
+* source chunks,
+* file names,
+* line ranges,
+* retrieval scores,
+* the active LLM provider and model.
+
+Only this command requires the Ollama server.
 
 ---
 
-## Explain the Complete RAG Pipeline
+### Explain the RAG pipeline
 
 ```bash
-uv run knowledge-assistant explain "What is BM25?"
+uv run knowledge-assistant explain \
+"What is BM25?"
 ```
 
-Shows:
+The command displays:
 
-* retrieved chunks
-* retrieval configuration
-* prompt sent to the model
-* generated answer
-* provider information
+* the question,
+* configured models,
+* retrieval method,
+* retrieved chunks,
+* vector distances,
+* BM25 scores,
+* hybrid RRF scores,
+* system prompt,
+* user prompt,
+* final generated answer.
+
+This command is intended for local debugging. It may expose full source content and prompts, so production systems should add redaction before exposing comparable traces.
 
 ---
 
-## View Index Statistics
+### Display index statistics
 
 ```bash
 uv run knowledge-assistant stats
@@ -333,17 +495,19 @@ uv run knowledge-assistant stats
 
 Example:
 
-```
+```text
 Table: knowledge_chunks_minilm_v1
 Chunks: 52
 Documents: 8
-Embedding Model: sentence-transformers/all-MiniLM-L6-v2
+Models: sentence-transformers/all-MiniLM-L6-v2
 Dimensions: (384,)
 ```
 
+This command does not require Ollama.
+
 ---
 
-## Inspect Indexed Chunks
+### Inspect indexed chunks
 
 ```bash
 uv run knowledge-assistant inspect
@@ -355,95 +519,248 @@ Limit output:
 uv run knowledge-assistant inspect --limit 3
 ```
 
----
-
-# Configuration
-
-Current defaults:
-
-```
-OLLAMA_HOST=http://localhost:11434
-OLLAMA_MODEL=qwen3:1.7b
-```
-
-Future versions will support OpenAI-compatible providers without requiring architectural changes.
+This command displays stored chunk content and citation metadata without running a retrieval query.
 
 ---
 
-# Example
+## Retrieval Strategies
+
+### Vector retrieval
+
+The query and chunks are represented as embeddings in the same vector space. LanceDB returns chunks with the smallest vector distance.
+
+Best suited to:
+
+* semantic similarity,
+* paraphrased questions,
+* concept-based queries,
+* wording that differs from source documents.
+
+### BM25 retrieval
+
+BM25 performs lexical full-text retrieval over chunk content.
+
+Best suited to:
+
+* exact identifiers,
+* API names,
+* error codes,
+* model names,
+* rare technical terms.
+
+### Hybrid retrieval
+
+Hybrid retrieval executes vector and BM25 retrieval independently and combines their rank positions using Reciprocal Rank Fusion.
+
+```text
+Vector ranked list ─┐
+                    ├── Reciprocal Rank Fusion ── Final ranking
+BM25 ranked list ───┘
+```
+
+RRF avoids directly comparing incompatible raw vector-distance and BM25-score scales.
+
+---
+
+## Example Search Output
+
+```text
+1. bm25.md
+Lines: 9-16
+Method: hybrid
+Score: 0.032522
+Vector distance: 0.8421
+BM25 score: 3.1452
+------------------------------------------------------------
+BM25 combines term-frequency and inverse-document-frequency
+signals with document-length normalization.
+```
+
+For vector distance, lower values indicate closer matches.
+
+The hybrid score is an RRF ranking score, not a probability or percentage.
+
+---
+
+## Example Grounded Answer
 
 ```text
 $ uv run knowledge-assistant ask \
-"What is BM25?"
+"What is BM25 and when is it useful?"
 
-BM25 is a lexical retrieval algorithm that performs well for
-exact identifiers, API names and error codes.
+BM25 is a lexical retrieval algorithm that is particularly useful
+for exact terms, identifiers, API names, and error codes [Source 1].
 
-Sources
+Sources:
 
-1.
-bm25.md
-Lines 14-22
+1. bm25.md
+Lines: 9-16
+Method: hybrid
+...
 
-Generated by:
-ollama / qwen3:1.7b
+Generated by: ollama/qwen3:1.7b
+```
+
+Generated answers may paraphrase source text. Every material claim should still be supported by the displayed source context.
+
+---
+
+## Engineering Decisions
+
+### Local-first architecture
+
+Document loading, chunking, embeddings, vector storage, BM25 retrieval, and rank fusion run locally.
+
+A hosted API key is not required for the current implementation.
+
+### Provider abstractions
+
+`EmbeddingProvider` and `LLMProvider` separate application logic from concrete AI providers.
+
+Planned providers can be introduced without changing the retrieval or answering services.
+
+### Retrieval Strategy Pattern
+
+`Retriever` depends on a `RetrievalStrategy`, allowing vector, BM25, and hybrid implementations to be selected through configuration or a CLI override.
+
+### Dependency injection
+
+Concrete dependencies are created in `bootstrap.py` and passed through constructors.
+
+No dependency-injection framework is used.
+
+### Typed configuration
+
+Pydantic Settings validates configuration and supports defaults, `.env` files, and environment-variable overrides.
+
+### Domain and storage separation
+
+Domain models such as `Chunk` and `Embedding` remain independent of LanceDB. The vector-store adapter creates a denormalized storage representation optimized for retrieval.
+
+### Explainability
+
+The `explain` command exposes retrieval and generation inputs so incorrect answers can be traced to retrieval quality, prompt construction, or model behavior.
+
+---
+
+## Development Workflow
+
+After modifying the documents or chunking configuration, rebuild the index:
+
+```bash
+uv run knowledge-assistant ingest
+```
+
+Compare retrieval strategies:
+
+```bash
+uv run knowledge-assistant search \
+"Why is BM25 useful for error codes?" \
+--strategy vector
+```
+
+```bash
+uv run knowledge-assistant search \
+"Why is BM25 useful for error codes?" \
+--strategy bm25
+```
+
+```bash
+uv run knowledge-assistant search \
+"Why is BM25 useful for error codes?" \
+--strategy hybrid
+```
+
+Inspect the complete pipeline:
+
+```bash
+uv run knowledge-assistant explain \
+"Why is BM25 useful for error codes?"
 ```
 
 ---
 
-# Engineering Decisions
+## Roadmap
 
-This project intentionally emphasizes software engineering over framework usage.
+### Completed
 
-Key design principles include:
-
-* Clean Architecture
-* Strategy Pattern
-* Immutable domain models
-* Separation of concerns
-* Provider abstraction
-* Local-first development
-* Explainable AI
-* Testability
-
----
-
-# Roadmap
-
-## Version 0.1 ✅
-
-* Document ingestion
-* Chunking
+* Local document ingestion
+* Traceable chunking
 * Local embeddings
-* LanceDB integration
-* Semantic search
+* LanceDB vector storage
+* BM25 full-text search
+* Vector retrieval
+* Hybrid retrieval
+* Reciprocal Rank Fusion
+* Retrieval strategy CLI override
+* Typed configuration
+* Constructor-based dependency injection
 * Grounded answer generation
-* Ollama provider
-* Explainable retrieval
-* CLI
+* Ollama integration
+* Source citations
+* Explainable RAG traces
+* CLI operations
 
-## Planned
+### Next
 
-* OpenAI provider
-* Hybrid Search (BM25 + Vector)
-* Reranking
-* Retrieval evaluation
+* Retrieval evaluation dataset
+* Top-1 and Top-k retrieval metrics
+* Cross-encoder reranking
+* Before-and-after evaluation reports
+* Unit and integration tests
+* Prompt versioning
+* Structured logging and latency metrics
+
+### Later
+
+* Incremental document ingestion
 * Metadata filtering
+* PDF and Word support
+* OpenAI provider
 * Conversation memory
 * REST API
+* Web interface
 * Multi-document reasoning
 * Agentic workflows
 
 ---
 
-# Contributing
+## Git Hygiene
 
-Issues, suggestions, and pull requests are welcome.
+Commit:
 
-The project is intentionally being developed incrementally to demonstrate production AI engineering practices.
+```text
+src/
+documents/
+tests/
+pyproject.toml
+uv.lock
+README.md
+.env.example
+.python-version
+.gitignore
+```
+
+Do not commit:
+
+```text
+.venv/
+.env
+data/
+__pycache__/
+.pytest_cache/
+.vscode/
+.idea/
+```
+
+The vector database is a generated artifact and can be recreated with:
+
+```bash
+uv run knowledge-assistant ingest
+```
 
 ---
 
-# License
+## License
 
-MIT License
+MIT

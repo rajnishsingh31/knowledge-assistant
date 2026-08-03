@@ -20,143 +20,77 @@ from knowledge_assistant.llm import (
     OllamaProvider,
 )
 from knowledge_assistant.prompt_builder import PromptBuilder
+from knowledge_assistant.config import Settings, get_settings
+from knowledge_assistant.document_loader import (
+    load_document,
+    load_documents,
+)
+
+from knowledge_assistant.application import (
+    KnowledgeAssistantApplication,
+)
+from knowledge_assistant.bootstrap import create_application
 
 
-
-DOCUMENTS_PATH = Path("documents")
-DATABASE_PATH = Path("data/lancedb")
-TABLE_NAME = "knowledge_chunks_minilm_v1"
-
-
-def create_vector_store() -> LanceDBVectorStore:
-    """Create the configured local vector-store adapter."""
-
-    return LanceDBVectorStore(
-        database_path=DATABASE_PATH,
-        table_name=TABLE_NAME,
-    )
-
-
-def create_embedding_provider() -> EmbeddingProvider:
-    """Create the configured embedding provider."""
-
-    return SentenceTransformerEmbeddingProvider()
-
-def create_llm_provider() -> LLMProvider:
-    """Create the configured LLM provider."""
-
-    provider_name = os.getenv(
-        "KNOWLEDGE_ASSISTANT_LLM_PROVIDER",
-        "ollama",
-    ).lower()
-
-    if provider_name == "ollama":
-        return OllamaProvider(
-            model_name=os.getenv(
-                "OLLAMA_MODEL",
-                DEFAULT_OLLAMA_MODEL,
-            ),
-            host=os.getenv(
-                "OLLAMA_HOST",
-                DEFAULT_OLLAMA_HOST,
-            ),
-        )
-
-    raise ValueError(
-        f"Unsupported LLM provider: {provider_name}"
-    )
-
-def create_answer_service() -> tuple[
-    AnswerService,
-    EmbeddingProvider,
-]:
-    """Create the grounded answer-generation pipeline."""
-
-    embedding_provider = create_embedding_provider()
-
-    retriever = Retriever(
-        embedding_provider=embedding_provider,
-        vector_store=create_vector_store(),
-    )
-
-    answer_service = AnswerService(
-        retriever=retriever,
-        prompt_builder=PromptBuilder(),
-        llm_provider=create_llm_provider(),
-    )
-
-    return answer_service, embedding_provider
-
-
-def ingest_documents(source_path: Path) -> None:
-    """Load, chunk, embed, and index local documents."""
-
-    if source_path.is_file():
-        documents = [load_document(source_path)]
-    else:
-        documents = load_documents(source_path)
-
-    if not documents:
-        print("No Markdown or text documents found.")
-        return
-
-    chunks = [
-        chunk
-        for document in documents
-        for chunk in chunk_document(document)
-    ]
-
-    embedding_provider = create_embedding_provider()
-    embeddings = embedding_provider.embed_chunks(chunks)
-
-    vector_store = create_vector_store()
-    vector_store.replace(chunks, embeddings)
+def ingest_documents(
+    application: KnowledgeAssistantApplication,
+    source_path: Path | None,
+) -> None:
+    result = application.ingest(source_path)
 
     print("Ingestion completed.")
-    print(f"Documents: {len(documents)}")
-    print(f"Chunks: {len(chunks)}")
-    print(f"Embeddings: {len(embeddings)}")
-    print(f"Model: {embedding_provider.model_name}")
-    print(f"Table: {TABLE_NAME}")
+    print(f"Documents: {result.document_count}")
+    print(f"Chunks: {result.chunk_count}")
+    print(f"Embeddings: {result.embedding_count}")
+    print(f"Model: {result.embedding_model}")
+    print(f"Table: {result.table_name}")
 
 
-def search_documents(query: str, limit: int) -> None:
-    """Search indexed documents."""
-
-    retriever = Retriever(
-        embedding_provider=create_embedding_provider(),
-        vector_store=create_vector_store(),
-    )
-
-    results = retriever.search(
+def search_documents(
+    application: KnowledgeAssistantApplication,
+    query: str,
+    limit: int | None,
+    strategy_name: str | None,
+) -> None:
+    results = application.search(
         query=query,
         limit=limit,
+        strategy_name=strategy_name,
     )
 
-    print(ConsoleFormatter.format_search_results(results))
+    print(
+        ConsoleFormatter.format_search_results(results)
+    )
 
 
-def show_stats() -> None:
-    """Print vector-index statistics."""
+def show_stats(
+    application: KnowledgeAssistantApplication,
+) -> None:
+    print(
+        ConsoleFormatter.format_stats(
+            application.stats()
+        )
+    )
 
-    stats = create_vector_store().stats()
-    print(ConsoleFormatter.format_stats(stats))
 
+def inspect_chunks(
+    application: KnowledgeAssistantApplication,
+    limit: int,
+) -> None:
+    records = application.inspect(limit=limit)
 
-def inspect_chunks(limit: int) -> None:
-    """Print readable records from the vector table."""
+    print(
+        ConsoleFormatter.format_records(records)
+    )
 
-    records = create_vector_store().inspect(limit=limit)
-    print(ConsoleFormatter.format_records(records))
-
-def ask_question(query: str, limit: int) -> None:
-    """Generate a grounded answer."""
-
-    answer_service, _ = create_answer_service()
-
-    answer = answer_service.answer(
+def ask_question(
+    application: KnowledgeAssistantApplication,
+    query: str,
+    limit: int | None,
+) -> None:
+    answer = application.ask(
         query=query,
-        retrieval_limit=limit,
+        limit=limit,
     )
 
     print(answer.content)
@@ -173,21 +107,22 @@ def ask_question(query: str, limit: int) -> None:
         f"{answer.provider_name}/{answer.model_name}"
     )
 
-def explain_question(query: str, limit: int) -> None:
-    """Show the complete retrieval and generation trace."""
-
-    answer_service, embedding_provider = create_answer_service()
-
-    trace = answer_service.generate_trace(
+def explain_question(
+    application: KnowledgeAssistantApplication,
+    query: str,
+    limit: int | None,
+) -> None:
+    trace = application.explain(
         query=query,
-        retrieval_limit=limit,
+        limit=limit,
     )
 
     print(
         ConsoleFormatter.format_generation_trace(
             trace=trace,
-            embedding_model_name=embedding_provider.model_name,
-            retrieval_limit=limit,
+            embedding_model_name=(
+                application.embedding_model_name
+            ),
         )
     )
 
@@ -214,7 +149,7 @@ def build_parser() -> argparse.ArgumentParser:
         "path",
         nargs="?",
         type=Path,
-        default=DOCUMENTS_PATH,
+        default=None,
         help="File or directory to ingest. Default: documents/",
     )
 
@@ -231,6 +166,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=3,
         help="Maximum results to return. Default: 3.",
+    )
+    search_parser.add_argument(
+        "--strategy",
+        choices=["vector", "bm25", "hybrid"],
+        default=None,
+        help=(
+            "Retrieval strategy override. "
+            "Default: configured strategy."
+        ),
     )
 
     subparsers.add_parser(
@@ -289,40 +233,55 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
-    """Run the command-line application."""
-
+    settings = get_settings()
     parser = build_parser()
     arguments = parser.parse_args(argv)
 
     try:
+        application = create_application(settings)
+
         if arguments.command == "ingest":
-            ingest_documents(arguments.path)
+            ingest_documents(
+                application=application,
+                source_path=arguments.path,
+            )
 
         elif arguments.command == "search":
             search_documents(
+                application=application,
                 query=arguments.query,
                 limit=arguments.limit,
+                strategy_name=arguments.strategy,
             )
 
         elif arguments.command == "ask":
             ask_question(
+                application=application,
+                query=arguments.query,
+                limit=arguments.limit,
+            )
+
+        elif arguments.command == "explain":
+            explain_question(
+                application=application,
                 query=arguments.query,
                 limit=arguments.limit,
             )
 
         elif arguments.command == "stats":
-            show_stats()
+            show_stats(application)
 
         elif arguments.command == "inspect":
-            inspect_chunks(limit=arguments.limit)
-
-        elif arguments.command == "explain":
-            explain_question(
-                query=arguments.query,
+            inspect_chunks(
+                application=application,
                 limit=arguments.limit,
-         )
+            )
 
-    except (FileNotFoundError, RuntimeError, ValueError) as error:
+    except (
+        FileNotFoundError,
+        RuntimeError,
+        ValueError,
+    ) as error:
         parser.error(str(error))
 
 

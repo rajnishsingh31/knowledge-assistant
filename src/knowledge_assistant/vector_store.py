@@ -9,6 +9,17 @@ from knowledge_assistant.models import Chunk, Embedding, SearchResult, IndexStat
 class LanceDBVectorStore:
     """Store and search document chunks using LanceDB."""
 
+    @staticmethod
+    def _row_to_chunk(row: dict[str, Any]) -> Chunk:
+        return Chunk(
+            chunk_id=row["chunk_id"],
+            document_id=row["document_id"],
+            source_path=Path(row["source_path"]),
+            content=row["content"],
+            start_line=int(row["start_line"]),
+            end_line=int(row["end_line"]),
+        )
+
     def __init__(
         self,
         database_path: Path,
@@ -56,18 +67,25 @@ class LanceDBVectorStore:
                 }
             )
 
-        self._database.create_table(
+        table = self._database.create_table(
             self._table_name,
             data=records,
             mode="overwrite",
         )
 
-    def search(
+        # Creates BM25 index for the "content" column to enable text search
+        table.create_fts_index(
+            "content",
+            replace=True,
+        )
+
+
+    def search_vector(
         self,
         query_vector: tuple[float, ...],
-        limit: int = 3,
+        limit: int = 10,
     ) -> list[SearchResult]:
-        """Return the closest document chunks."""
+        """Return chunks using vector similarity."""
 
         if not query_vector:
             raise ValueError("Query vector cannot be empty")
@@ -83,26 +101,51 @@ class LanceDBVectorStore:
             .to_list()
         )
 
-        results: list[SearchResult] = []
-
-        for row in rows:
-            chunk = Chunk(
-                chunk_id=row["chunk_id"],
-                document_id=row["document_id"],
-                source_path=Path(row["source_path"]),
-                content=row["content"],
-                start_line=int(row["start_line"]),
-                end_line=int(row["end_line"]),
+        return [
+            SearchResult(
+                chunk=self._row_to_chunk(row),
+                retrieval_method="vector",
+                score=-float(row["_distance"]),
+                vector_distance=float(row["_distance"]),
             )
+            for row in rows
+        ]
 
-            results.append(
-                SearchResult(
-                    chunk=chunk,
-                    distance=float(row["_distance"]),
-                )
+    def search_text(
+        self,
+        query: str,
+        limit: int = 10,
+    ) -> list[SearchResult]:
+        """Return chunks using BM25 full-text search."""
+
+        normalized_query = query.strip()
+
+        if not normalized_query:
+            raise ValueError("Query cannot be empty")
+
+        if limit <= 0:
+            raise ValueError("Limit must be greater than zero")
+
+        table = self._database.open_table(self._table_name)
+
+        rows = (
+            table.search(
+                normalized_query,
+                fts_columns="content",
             )
+            .limit(limit)
+            .to_list()
+        )
 
-        return results
+        return [
+            SearchResult(
+                chunk=self._row_to_chunk(row),
+                retrieval_method="bm25",
+                score=float(row["_score"]),
+                bm25_score=float(row["_score"]),
+            )
+            for row in rows
+        ]
 
     def exists(self) -> bool:
         """Return whether the configured table exists."""

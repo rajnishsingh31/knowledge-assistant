@@ -1,12 +1,13 @@
 [project]
 name = "knowledge-assistant"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI assistant that answers questions over uploaded documents."
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "lancedb>=0.36.0",
     "ollama>=0.6.2",
+    "pydantic-settings>=2.14.2",
     "sentence-transformers>=5.6.1",
 ]
 

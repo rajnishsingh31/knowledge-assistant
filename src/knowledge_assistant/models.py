@@ -32,13 +32,6 @@ class Embedding:
     vector: tuple[float, ...]
 
 @dataclass(frozen=True)
-class SearchResult:
-    """A chunk returned by a retrieval query."""
-
-    chunk: Chunk
-    distance: float
-
-@dataclass(frozen=True)
 class IndexStats:
     """Summary information about a vector index."""
 
@@ -47,6 +40,16 @@ class IndexStats:
     document_count: int
     embedding_models: tuple[str, ...]
     dimensions: tuple[int, ...]
+
+@dataclass(frozen=True)
+class SearchResult:
+    """A chunk returned by a retrieval query."""
+
+    chunk: Chunk
+    retrieval_method: str
+    score: float
+    vector_distance: float | None = None
+    bm25_score: float | None = None
 
 @dataclass(frozen=True)
 class RetrievedContext:
@@ -80,3 +83,4 @@ class GenerationTrace:
     retrieved_context: RetrievedContext
     prompt: Prompt
     generated_answer: GeneratedAnswer
+
