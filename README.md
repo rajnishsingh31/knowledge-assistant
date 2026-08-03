@@ -150,6 +150,7 @@ bootstrap.py
 | Default LLM             | `qwen3:1.7b`           |
 | CLI                     | argparse               |
 | Columnar data           | Apache Arrow           |
+| Default reranker model  | `cross-encoder/ms-marco-MiniLM-L6-v2` |
 
 ---
 
