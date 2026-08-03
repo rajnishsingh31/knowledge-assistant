@@ -27,6 +27,24 @@ from knowledge_assistant.reranking import (
     CrossEncoderReranker,
     )
 from knowledge_assistant.models import StartupTimings
+from knowledge_assistant.document_loader import (
+    DocumentService,
+)
+from knowledge_assistant.document_loaders.factory import (
+    DocumentLoaderFactory,
+)
+from knowledge_assistant.document_loaders.text import (
+    TextDocumentLoader,
+)
+from knowledge_assistant.document_loaders.excel import (
+    ExcelDocumentLoader,
+)
+from knowledge_assistant.document_loaders.pdf import (
+    PdfDocumentLoader,
+)
+from knowledge_assistant.document_loaders.word import (
+    WordDocumentLoader,
+)
 
 
 def create_retrieval_strategy(
@@ -132,6 +150,19 @@ def create_application(
     ) -> KnowledgeAssistantApplication:
         """Construct the complete application dependency graph."""
 
+        document_loader_factory = DocumentLoaderFactory(
+            loaders=[
+                TextDocumentLoader(),
+                PdfDocumentLoader(),
+                WordDocumentLoader(),
+                ExcelDocumentLoader(),
+            ]
+        )
+
+        document_service = DocumentService(
+            loader_factory=document_loader_factory
+        )
+
         embedding_provider = create_embedding_provider(settings)
         vector_store = create_vector_store(settings)
 
@@ -162,6 +193,7 @@ def create_application(
 
         return KnowledgeAssistantApplication(
             settings=settings,
+            document_service=document_service,
             embedding_provider=embedding_provider,
             vector_store=vector_store,
             retrieval_strategies=retrieval_strategies,

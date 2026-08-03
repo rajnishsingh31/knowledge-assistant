@@ -5,7 +5,6 @@ from typing import Sequence
 from time import perf_counter
 
 from knowledge_assistant.chunking import chunk_document
-from knowledge_assistant.document_loader import load_documents
 from knowledge_assistant.embeddings import (
     EmbeddingProvider,
     SentenceTransformerEmbeddingProvider,
@@ -23,11 +22,6 @@ from knowledge_assistant.llm import (
 )
 from knowledge_assistant.prompt_builder import PromptBuilder
 from knowledge_assistant.config import Settings, get_settings
-from knowledge_assistant.document_loader import (
-    load_document,
-    load_documents,
-)
-
 from knowledge_assistant.application import (
     KnowledgeAssistantApplication,
 )

@@ -13,7 +13,7 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 
 ### Document ingestion
 
-* Load Markdown (`.md`) and plain-text (`.txt`) files
+* Supported file types: Markdown (`.md`), Plain text (`.txt`), PDF (`.pdf`), Microsoft Word (`.docx`), Microsoft Excel (`.xlsx`)
 * Ingest one file, a directory, or the configured default directory
 * Generate stable document and chunk identifiers
 * Preserve source file and line-number metadata
@@ -208,6 +208,12 @@ knowledge-assistant/
 │       ├── reranking.py
 │       ├── retrieval.py
 │       └── vector_store.py
+│       └── document_loaders/
+│                   └── pdf.py
+│                   └── excel.py
+│                   └── text.py
+│                   └── word.py (.text, .md)
+│                         
 ├── tests/
 ├── .env.example
 ├── .gitignore

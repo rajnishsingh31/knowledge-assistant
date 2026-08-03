@@ -6,8 +6,7 @@ from knowledge_assistant.answering import AnswerService
 from knowledge_assistant.chunking import chunk_document
 from knowledge_assistant.config import Settings
 from knowledge_assistant.document_loader import (
-    load_document,
-    load_documents,
+    DocumentService,
 )
 from knowledge_assistant.embeddings import EmbeddingProvider
 from knowledge_assistant.models import (
@@ -57,6 +56,7 @@ class KnowledgeAssistantApplication:
     def __init__(
         self,
         settings: Settings,
+        document_service: DocumentService,
         embedding_provider: EmbeddingProvider,
         vector_store: LanceDBVectorStore,
         retrieval_strategies: dict[str, RetrievalStrategy],
@@ -65,6 +65,7 @@ class KnowledgeAssistantApplication:
          startup_timings: StartupTimings | None = None,
     ) -> None:
         self._settings = settings
+        self._document_service = document_service
         self._embedding_provider = embedding_provider
         self._vector_store = vector_store
         self._retrieval_strategies = retrieval_strategies
@@ -96,9 +97,13 @@ class KnowledgeAssistantApplication:
         document_loading_started = perf_counter()
 
         if path.is_file():
-            documents = [load_document(path)]
+            documents = [
+                self._document_service.load_document(path)
+            ]
         else:
-            documents = load_documents(path)
+            documents = (
+                self._document_service.load_documents(path)
+            )
 
         document_loading_ms = (
             perf_counter() - document_loading_started
