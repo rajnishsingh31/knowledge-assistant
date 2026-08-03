@@ -15,6 +15,7 @@ from knowledge_assistant.models import (
     IndexStats,
     SearchResult,
 )
+from knowledge_assistant.reranking import Reranker
 from knowledge_assistant.retrieval import (
     Retriever, 
     RetrievalStrategy
@@ -54,12 +55,14 @@ class KnowledgeAssistantApplication:
         embedding_provider: EmbeddingProvider,
         vector_store: LanceDBVectorStore,
         retrieval_strategies: dict[str, RetrievalStrategy],
+        reranker: Reranker,
         answer_service: AnswerService,
     ) -> None:
         self._settings = settings
         self._embedding_provider = embedding_provider
         self._vector_store = vector_store
         self._retrieval_strategies = retrieval_strategies
+        self._reranker = reranker
         self._answer_service = answer_service
 
     def ingest(
@@ -203,6 +206,7 @@ class KnowledgeAssistantApplication:
         strategy_name: str,
         dataset_path: Path | None = None,
         top_k: int | None = None,
+        use_reranker: bool = False,
     ) -> RetrievalEvaluationSummary:
         """Evaluate one retrieval strategy."""
 
@@ -225,6 +229,25 @@ class KnowledgeAssistantApplication:
         evaluator = RetrievalEvaluator(
             retriever=retriever,
             strategy_name=strategy_name,
+        )
+
+        evaluator = RetrievalEvaluator(
+            retriever=retriever,
+            strategy_name=(
+                f"{strategy_name}+reranker"
+                if use_reranker
+                else strategy_name
+            ),
+            reranker=(
+                self._reranker
+                if use_reranker
+                else None
+            ),
+            candidate_limit=(
+                self._settings.reranking.retrieval_limit
+                if use_reranker
+                else None
+            ),
         )
 
         return evaluator.evaluate(

@@ -21,6 +21,11 @@ from knowledge_assistant.retrieval import (
 )
 
 from knowledge_assistant.vector_store import LanceDBVectorStore
+from knowledge_assistant.reranking import (
+    Reranker,
+    IdentityReranker,
+    CrossEncoderReranker,
+    )
 
 
 def create_retrieval_strategy(
@@ -104,6 +109,21 @@ def create_llm_provider(
         f"Unsupported LLM provider: {settings.llm.provider}"
     )
 
+def create_reranker(
+        settings: Settings,
+    ) -> Reranker:
+        if settings.reranking.strategy == "identity":
+            return IdentityReranker()
+
+        if settings.reranking.strategy == "cross-encoder":
+            return CrossEncoderReranker(
+                model_name=settings.reranking.model_name
+            )
+
+        raise ValueError(
+            f"Unsupported reranker: {settings.reranking.strategy}"
+        )
+
 
 def create_application(
         settings: Settings,
@@ -127,11 +147,15 @@ def create_application(
                 strategy=configured_strategy,
         )
 
+        reranker = create_reranker(settings)
  
         answer_service = AnswerService(
             retriever=retriever,
             prompt_builder=PromptBuilder(),
             llm_provider=create_llm_provider(settings),
+            reranker=reranker,
+            retrieval_limit=settings.reranking.retrieval_limit,
+            final_limit=settings.reranking.final_limit,
         )
 
         return KnowledgeAssistantApplication(
@@ -139,6 +163,7 @@ def create_application(
             embedding_provider=embedding_provider,
             vector_store=vector_store,
             retrieval_strategies=retrieval_strategies,
+            reranker=reranker,
             answer_service=answer_service,
         )
 

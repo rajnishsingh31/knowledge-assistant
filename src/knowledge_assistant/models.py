@@ -50,6 +50,7 @@ class SearchResult:
     score: float
     vector_distance: float | None = None
     bm25_score: float | None = None
+    reranker_score: float | None = None
 
 @dataclass(frozen=True)
 class RetrievedContext:

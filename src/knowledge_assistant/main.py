@@ -132,6 +132,7 @@ def evaluate_retrieval(
     dataset_path: Path | None,
     top_k: int | None,
     include_details: bool,
+    use_reranker: bool,
 ) -> None:
     """Evaluate configured retrieval strategies."""
 
@@ -148,6 +149,7 @@ def evaluate_retrieval(
             strategy_name=selected_strategy,
             dataset_path=dataset_path,
             top_k=top_k,
+            use_reranker=use_reranker,
         )
 
         outputs.append(
@@ -157,7 +159,8 @@ def evaluate_retrieval(
             )
         )
 
-    print(("\n\n" + "=" * 70 + "\n\n").join(outputs))
+    separator = "\n\n" + "=" * 70 + "\n\n"
+    print(separator.join(outputs))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -292,6 +295,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Display per-case evaluation results.",
     )
 
+    evaluate_parser.add_argument(
+        "--rerank",
+        action="store_true",
+        help="Apply the configured reranker before evaluation.",
+    )
+
     return parser
 
 
@@ -348,6 +357,7 @@ def main(argv: Sequence[str] | None = None) -> None:
                 dataset_path=arguments.dataset,
                 top_k=arguments.top_k,
                 include_details=arguments.details,
+                use_reranker=arguments.rerank,
        )
 
     except (

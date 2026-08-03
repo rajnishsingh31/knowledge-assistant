@@ -35,7 +35,17 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 * Reciprocal Rank Fusion (RRF)
 * Configurable retrieval strategy
 * Per-command retrieval strategy override
-* Configurable candidate and result limits
+* Configurable candidate retrieval limits
+
+### Cross-Encoder Reranking
+
+* Local cross-encoder reranking
+* Identity reranker
+* Configurable reranking provider
+* Configurable reranking model
+* Candidate reranking before answer generation
+* Configurable candidate and final result limits
+* Optional reranking during evaluation
 
 ### Answer generation
 
@@ -68,31 +78,39 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 ## Architecture
 
 ```text
-                              CLI
-                               │
-                               ▼
-                 KnowledgeAssistantApplication
-                               │
-       ┌──────────────┬────────┴────────┬──────────────┐
-       │              │                 │              │
-       ▼              ▼                 ▼              ▼
-   Ingestion      Retrieval        Answering      Evaluation
-       │              │                 │              │
-       ▼              ▼                 ▼              ▼
-Document Loader   Retriever       AnswerService  RetrievalEvaluator
-       │              │                 │              │
-       ▼              ▼                 ▼              ▼
-    Chunker   RetrievalStrategy   PromptBuilder   Evaluation Dataset
-       │       ┌─────┼─────┐            │              │
-       ▼       │     │     │            ▼              ▼
-Embedding   Vector  BM25 Hybrid      Prompt        Metrics
-Provider       │      │    │            │
-       ▼       └──────┴────┘            ▼
-Sentence       Reciprocal Rank      LLMProvider
-Transformers      Fusion                │
-       │                                ▼
-       ▼                           OllamaProvider
-  LanceDB
+                                  CLI
+                                   │
+                                   ▼
+                     KnowledgeAssistantApplication
+                                   │
+       ┌───────────────┬───────────┴───────────┬────────────────┐
+       │               │                       │                │
+       ▼               ▼                       ▼                ▼
+   Ingestion        Retrieval               Answering       Evaluation
+       │               │                       │                │
+       ▼               ▼                       ▼                ▼
+Document Loader    Retriever              AnswerService   RetrievalEvaluator
+       │               │                       │                │
+       ▼               ▼                       ▼                ▼
+    Chunker     RetrievalStrategy          Reranker      Evaluation Dataset
+       │        ┌──────┼──────┐                │                │
+       ▼        │      │      │                ▼                ▼
+ Embedding    Vector  BM25  Hybrid       PromptBuilder        Metrics
+ Provider       │      │      │                │
+       │        └──────┴──────┘                ▼
+       ▼               │                     Prompt
+Sentence               ▼                       │
+Transformers   Reciprocal Rank Fusion          ▼
+       │               │                  LLMProvider
+       ▼               ▼                       │
+   LanceDB      Candidate Chunks               ▼
+                       │                OllamaProvider
+                       ▼
+                Cross-Encoder Reranker
+                       │
+                       ▼
+                 Final Chunks
+
 ```
 
 ### Dependency construction
@@ -140,7 +158,8 @@ bootstrap.py
 ```text
 knowledge-assistant/
 ├── documents/
-│   └── *.md
+├── evaluations/
+│   └── retrieval.json
 ├── src/
 │   └── knowledge_assistant/
 │       ├── answering.py
@@ -150,17 +169,16 @@ knowledge-assistant/
 │       ├── config.py
 │       ├── document_loader.py
 │       ├── embeddings.py
-│       │── evaluation.py 
+│       ├── evaluation.py
 │       ├── formatters.py
 │       ├── llm.py
 │       ├── main.py
 │       ├── models.py
 │       ├── prompt_builder.py
+│       ├── reranking.py
 │       ├── retrieval.py
 │       └── vector_store.py
 ├── tests/
-├── evaluations/
-│   └── retrieval.json
 ├── .env.example
 ├── .gitignore
 ├── .python-version
@@ -370,6 +388,10 @@ uv run knowledge-assistant explain --help
 uv run knowledge-assistant inspect --help
 ```
 
+```bash
+uv run knowledge-assistant evaluate --help
+```
+
 ---
 
 ## CLI Commands
@@ -552,10 +574,17 @@ Evaluate one strategy:
 uv run knowledge-assistant evaluate --strategy hybrid
 ```
 
+Evaluate one strategy with the configured reranker. Default Reranking strategy is cross-encoder:
+
+```bash
+uv run knowledge-assistant evaluate --strategy hybrid --rerank
+```
+
 Show detailed per-query results:
 
 ```bash
 uv run knowledge-assistant evaluate --details
+uv run knowledge-assistant evaluate --strategy hybrid --rerank --details
 ```
 
 Use a custom evaluation dataset:
@@ -685,7 +714,15 @@ The `explain` command exposes retrieval and generation inputs so incorrect answe
 
 ### Measuring Retrieval Quality 
 
-Before introducing new retrieval algorithms such as reranking, the project establishes an offline evaluation framework to measure retrieval quality objectively. This allows improvements to be validated using reproducible metrics rather than subjective observation.
+Before introducing retrieval improvements such as reranking, the project establishes an offline evaluation framework to measure retrieval quality objectively.
+
+Every retrieval change is evaluated using the same dataset and reproducible Top-1 and Top-k metrics rather than subjective observation.
+
+The current evaluation measures document-level relevance. Some queries may have more than one valid supporting document. A future version will distinguish between:
+
+* any relevant document,
+* preferred or authoritative document,
+* exact supporting chunk.
 
 ---
 
@@ -750,11 +787,10 @@ uv run knowledge-assistant explain \
 * Top-1 and Top-k retrieval metrics
 * Configurable evaluation dataset
 * Strategy comparison (Vector, BM25, Hybrid)
-
-### Next
-
 * Cross-encoder reranking
 * Before-and-after evaluation reports
+
+### Next
 * Unit and integration tests
 * Prompt versioning
 * Structured logging and latency metrics

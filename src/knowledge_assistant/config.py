@@ -40,6 +40,14 @@ class EvaluationSettings(BaseModel):
     dataset_path: Path = Path("evaluations/retrieval.json")
     top_k: int = Field(default=3, gt=0)
 
+class RerankingSettings(BaseModel):
+    strategy: Literal["identity", "cross-encoder"] = "cross-encoder"
+    model_name: str = (
+        "cross-encoder/ms-marco-MiniLM-L6-v2"
+    )
+    retrieval_limit: int = Field(default=10, gt=0)
+    final_limit: int = Field(default=3, gt=0)
+
 
 class Settings(BaseSettings):
     """Application configuration loaded from defaults and environment."""
@@ -58,7 +66,7 @@ class Settings(BaseSettings):
     retrieval: RetrievalSettings = RetrievalSettings()
     llm: LLMSettings = LLMSettings()
     evaluation: EvaluationSettings = EvaluationSettings()
-
+    reranking: RerankingSettings = RerankingSettings()
 
 @lru_cache
 def get_settings() -> Settings:

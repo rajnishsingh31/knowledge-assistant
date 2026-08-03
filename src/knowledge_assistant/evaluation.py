@@ -8,6 +8,7 @@ from knowledge_assistant.models import (
     RetrievalEvaluationSummary,
 )
 from knowledge_assistant.retrieval import Retriever
+from knowledge_assistant.reranking import Reranker
 
 
 def load_evaluation_cases(
@@ -92,9 +93,14 @@ class RetrievalEvaluator:
         self,
         retriever: Retriever,
         strategy_name: str,
+        reranker: Reranker | None = None,
+        candidate_limit: int | None = None,
     ) -> None:
         self._retriever = retriever
         self._strategy_name = strategy_name
+        self._reranker = reranker
+        self._candidate_limit = candidate_limit
+
 
     def evaluate(
         self,
@@ -106,10 +112,24 @@ class RetrievalEvaluator:
 
         case_results: list[EvaluationCaseResult] = []
 
+        retrieval_limit = (
+            self._candidate_limit
+            if self._reranker and self._candidate_limit is not None
+            else top_k
+        )
+
         for case in cases:
+
             search_results = self._retriever.search(
                 query=case.query,
-                limit=top_k,
+                limit=retrieval_limit,
+            )
+
+            if self._reranker is not None:
+                search_results = self._reranker.rerank(
+                    query=case.query,
+                    results=search_results,
+                    limit=top_k,
             )
 
             retrieved_documents = tuple(
