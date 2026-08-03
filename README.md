@@ -86,11 +86,11 @@ Document Loader   Retriever       AnswerService  RetrievalEvaluator
        │       ┌─────┼─────┐            │              │
        ▼       │     │     │            ▼              ▼
 Embedding   Vector  BM25 Hybrid      Prompt        Metrics
-Provider       │      │     │            │
-       ▼       └──────┴─────┘            ▼
-Sentence         Reciprocal Rank      LLMProvider
-Transformers          Fusion              │
-       │                                  ▼
+Provider       │      │    │            │
+       ▼       └──────┴────┘            ▼
+Sentence       Reciprocal Rank      LLMProvider
+Transformers      Fusion                │
+       │                                ▼
        ▼                           OllamaProvider
   LanceDB
 ```
