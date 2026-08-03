@@ -1,6 +1,12 @@
 from pathlib import Path
 
-from knowledge_assistant.models import IndexStats, SearchResult, SearchResult, GenerationTrace
+from knowledge_assistant.models import( 
+    IndexStats, 
+    SearchResult,
+    SearchResult,
+    GenerationTrace,
+    RetrievalEvaluationSummary
+)
 
 
 class ConsoleFormatter:
@@ -149,3 +155,67 @@ class ConsoleFormatter:
                 separator,
             ]
     )
+
+    @staticmethod
+    def format_retrieval_evaluation(
+        summary: RetrievalEvaluationSummary,
+        include_details: bool = False,
+    ) -> str:
+        """Format retrieval evaluation metrics."""
+
+        lines = [
+            f"Strategy: {summary.strategy_name}",
+            f"Cases: {summary.case_count}",
+            (
+                f"Top-1 accuracy: "
+                f"{summary.top_1_accuracy:.1%} "
+                f"({summary.top_1_hits}/{summary.case_count})"
+            ),
+            (
+                f"Top-k accuracy: "
+                f"{summary.top_k_accuracy:.1%} "
+                f"({summary.top_k_hits}/{summary.case_count})"
+            ),
+        ]
+
+        if include_details:
+            lines.extend(
+                [
+                    "",
+                    "Case results:",
+                    "-" * 60,
+                ]
+            )
+
+            for result in summary.results:
+                status = (
+                    "PASS"
+                    if result.top_k_hit
+                    else "FAIL"
+                )
+
+                lines.extend(
+                    [
+                        f"{status} — {result.case_id}",
+                        f"Query: {result.query}",
+                        (
+                            "Expected: "
+                            f"{', '.join(result.expected_documents)}"
+                        ),
+                        (
+                            "Retrieved: "
+                            f"{', '.join(result.retrieved_documents)}"
+                        ),
+                        (
+                            f"Top-1: "
+                            f"{'yes' if result.top_1_hit else 'no'}"
+                        ),
+                        (
+                            f"Top-k: "
+                            f"{'yes' if result.top_k_hit else 'no'}"
+                        ),
+                        "",
+                    ]
+                )
+
+        return "\n".join(lines).rstrip()

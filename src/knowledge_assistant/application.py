@@ -20,6 +20,13 @@ from knowledge_assistant.retrieval import (
     RetrievalStrategy
     )
 from knowledge_assistant.vector_store import LanceDBVectorStore
+from knowledge_assistant.evaluation import (
+    RetrievalEvaluator,
+    load_evaluation_cases,
+)
+from knowledge_assistant.models import (
+    RetrievalEvaluationSummary,
+)
 
 
 @dataclass(frozen=True)
@@ -119,6 +126,14 @@ class KnowledgeAssistantApplication:
 
         return Retriever(strategy=strategy)
 
+    def create_retriever(
+        self,
+        strategy_name: str | None = None,
+    ) -> Retriever:
+        """Create a retriever using a configured strategy."""
+
+        return self._create_retriever(strategy_name)
+
     def search(
         self,
         query: str,
@@ -182,6 +197,40 @@ class KnowledgeAssistantApplication:
         """Return stored vector records for inspection."""
 
         return self._vector_store.inspect(limit=limit)
+
+    def evaluate_retrieval(
+        self,
+        strategy_name: str,
+        dataset_path: Path | None = None,
+        top_k: int | None = None,
+    ) -> RetrievalEvaluationSummary:
+        """Evaluate one retrieval strategy."""
+
+        effective_dataset_path = (
+            dataset_path
+            or self._settings.evaluation.dataset_path
+        )
+
+        effective_top_k = (
+            top_k
+            or self._settings.evaluation.top_k
+        )
+
+        cases = load_evaluation_cases(
+            effective_dataset_path
+        )
+
+        retriever = self.create_retriever(strategy_name)
+
+        evaluator = RetrievalEvaluator(
+            retriever=retriever,
+            strategy_name=strategy_name,
+        )
+
+        return evaluator.evaluate(
+            cases=cases,
+            top_k=effective_top_k,
+        )
 
     @property
     def embedding_model_name(self) -> str:

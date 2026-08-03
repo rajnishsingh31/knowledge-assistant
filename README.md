@@ -6,6 +6,8 @@ Knowledge Assistant indexes local documents and supports semantic search, keywor
 
 The project intentionally avoids high-level AI orchestration frameworks in its early stages. Its purpose is to demonstrate the engineering behind production RAG systems, including provider abstraction, dependency injection, typed configuration, retrieval strategies, citations, and pipeline explainability.
 
+Before introducing new retrieval algorithms such as reranking, the project establishes an offline evaluation framework to measure retrieval quality objectively. This allows improvements to be validated using reproducible metrics rather than subjective observation.
+
 ---
 
 ## Current Capabilities
@@ -52,6 +54,15 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 * Display the complete system and user prompts
 * Display the configured embedding model and LLM
 * Display the final generated answer
+
+### Retrieval evaluation
+
+* Offline retrieval evaluation framework
+* Top-1 and Top-k accuracy metrics
+* Compare Vector, BM25, and Hybrid retrieval
+* Configurable evaluation dataset
+* Per-query evaluation reports
+* No LLM required
 
 ---
 
@@ -523,6 +534,33 @@ This command displays stored chunk content and citation metadata without running
 
 ---
 
+### Evaluate Retrieval
+
+Evaluate all retrieval strategies:
+
+```bash
+uv run knowledge-assistant evaluate
+```
+
+Evaluate one strategy:
+
+```bash
+uv run knowledge-assistant evaluate --strategy hybrid
+```
+
+Show detailed per-query results:
+
+```bash
+uv run knowledge-assistant evaluate --details
+```
+
+Use a custom evaluation dataset:
+
+```bash
+uv run knowledge-assistant evaluate \
+    --dataset evaluations/retrieval.json
+```
+
 ## Retrieval Strategies
 
 ### Vector retrieval
@@ -700,11 +738,13 @@ uv run knowledge-assistant explain \
 * Source citations
 * Explainable RAG traces
 * CLI operations
+* Retrieval evaluation dataset
+* Top-1 and Top-k retrieval metrics
+* Configurable evaluation dataset
+* Strategy comparison (Vector, BM25, Hybrid)
 
 ### Next
 
-* Retrieval evaluation dataset
-* Top-1 and Top-k retrieval metrics
 * Cross-encoder reranking
 * Before-and-after evaluation reports
 * Unit and integration tests

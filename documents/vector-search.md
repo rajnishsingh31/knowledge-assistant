@@ -1,5 +1,7 @@
 # vector search concepts:
 
+Vector search retrieves semantically similar content by comparing embedding vectors.
+
 ## Cosine similarity: 
 Measures the directional alignment (angle) between two vectors, ignoring magnitude.
 

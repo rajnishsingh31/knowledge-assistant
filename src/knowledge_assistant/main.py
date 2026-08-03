@@ -126,6 +126,39 @@ def explain_question(
         )
     )
 
+def evaluate_retrieval(
+    application: KnowledgeAssistantApplication,
+    strategy_name: str,
+    dataset_path: Path | None,
+    top_k: int | None,
+    include_details: bool,
+) -> None:
+    """Evaluate configured retrieval strategies."""
+
+    strategy_names = (
+        ["vector", "bm25", "hybrid"]
+        if strategy_name == "all"
+        else [strategy_name]
+    )
+
+    outputs: list[str] = []
+
+    for selected_strategy in strategy_names:
+        summary = application.evaluate_retrieval(
+            strategy_name=selected_strategy,
+            dataset_path=dataset_path,
+            top_k=top_k,
+        )
+
+        outputs.append(
+            ConsoleFormatter.format_retrieval_evaluation(
+                summary=summary,
+                include_details=include_details,
+            )
+        )
+
+    print(("\n\n" + "=" * 70 + "\n\n").join(outputs))
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line argument parser."""
@@ -227,6 +260,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum source chunks to use. Default: 3.",
     )
 
+    evaluate_parser = subparsers.add_parser(
+    "evaluate",
+    help="Evaluate retrieval quality.",
+    )
+
+    evaluate_parser.add_argument(
+        "--strategy",
+        choices=["vector", "bm25", "hybrid", "all"],
+        default="all",
+        help="Strategy to evaluate. Default: all.",
+    )
+
+    evaluate_parser.add_argument(
+        "--dataset",
+        type=Path,
+        default=None,
+        help="Evaluation dataset path.",
+    )
+
+    evaluate_parser.add_argument(
+        "--top-k",
+        type=int,
+        default=None,
+        help="Number of retrieved results per case.",
+    )
+
+    evaluate_parser.add_argument(
+        "--details",
+        action="store_true",
+        help="Display per-case evaluation results.",
+    )
 
     return parser
 
@@ -276,6 +340,15 @@ def main(argv: Sequence[str] | None = None) -> None:
                 application=application,
                 limit=arguments.limit,
             )
+
+        elif arguments.command == "evaluate":
+            evaluate_retrieval(
+                application=application,
+                strategy_name=arguments.strategy,
+                dataset_path=arguments.dataset,
+                top_k=arguments.top_k,
+                include_details=arguments.details,
+       )
 
     except (
         FileNotFoundError,

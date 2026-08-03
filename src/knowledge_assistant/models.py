@@ -84,3 +84,35 @@ class GenerationTrace:
     prompt: Prompt
     generated_answer: GeneratedAnswer
 
+@dataclass(frozen=True)
+class EvaluationCase:
+    """One retrieval evaluation case."""
+
+    case_id: str
+    query: str
+    expected_documents: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EvaluationCaseResult:
+    """Result of evaluating one query."""
+
+    case_id: str
+    query: str
+    expected_documents: tuple[str, ...]
+    retrieved_documents: tuple[str, ...]
+    top_1_hit: bool
+    top_k_hit: bool
+
+
+@dataclass(frozen=True)
+class RetrievalEvaluationSummary:
+    """Aggregated retrieval evaluation metrics."""
+
+    strategy_name: str
+    case_count: int
+    top_1_hits: int
+    top_k_hits: int
+    top_1_accuracy: float
+    top_k_accuracy: float
+    results: tuple[EvaluationCaseResult, ...]

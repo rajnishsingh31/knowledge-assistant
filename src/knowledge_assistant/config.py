@@ -36,6 +36,10 @@ class LLMSettings(BaseModel):
     ollama_host: str = "http://localhost:11434"
     temperature: float = Field(default=0.0, ge=0.0, le=2.0)
 
+class EvaluationSettings(BaseModel):
+    dataset_path: Path = Path("evaluations/retrieval.json")
+    top_k: int = Field(default=3, gt=0)
+
 
 class Settings(BaseSettings):
     """Application configuration loaded from defaults and environment."""
@@ -53,6 +57,7 @@ class Settings(BaseSettings):
     vector_store: VectorStoreSettings = VectorStoreSettings()
     retrieval: RetrievalSettings = RetrievalSettings()
     llm: LLMSettings = LLMSettings()
+    evaluation: EvaluationSettings = EvaluationSettings()
 
 
 @lru_cache

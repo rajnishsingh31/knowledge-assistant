@@ -1,0 +1,65 @@
+[
+    {
+        "case_id": "bm25-definition",
+        "query": "What is BM25?",
+        "expected_documents": [
+            "bm25.md"
+        ]
+    },
+    {
+        "case_id": "bm25-error-codes",
+        "query": "Why is BM25 useful for error codes?",
+        "expected_documents": [
+            "bm25.md"
+        ]
+    },
+    {
+        "case_id": "semantic-search",
+        "query": "How does the system find text with similar meaning?",
+        "expected_documents": [
+            "vector-search.md"
+        ]
+    },
+    {
+        "case_id": "chunk-overlap",
+        "query": "Why do document chunks overlap?",
+        "expected_documents": [
+            "rag.md"
+        ]
+    },
+    {
+        "case_id": "linux-permissions",
+        "query": "How do I change file permissions?",
+        "expected_documents": [
+            "linux.md"
+        ]
+    },
+    {
+        "case_id": "python-enumerate",
+        "query": "What does enumerate return?",
+        "expected_documents": [
+            "python-basic.md"
+        ]
+    },
+    {
+        "case_id": "oop-encapsulation",
+        "query": "What is encapsulation?",
+        "expected_documents": [
+            "python-oop.md"
+        ]
+    },
+    {
+        "case_id": "dynamic-programming",
+        "query": "What is memoization?",
+        "expected_documents": [
+            "dynamic-programming.md"
+        ]
+    },
+    {
+        "case_id": "agent-evaluator",
+        "query": "What does an evaluator do in an AI agent?",
+        "expected_documents": [
+            "agentic-ai.md"
+        ]
+    }
+]
