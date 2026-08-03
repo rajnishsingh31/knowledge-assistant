@@ -21,6 +21,8 @@ def create_result(
         content=content,
         start_line=start_line,
         end_line=end_line,
+        document_hash="document-hash-1",
+        chunk_hash=f"chunk-hash-1",
     )
 
     return SearchResult(

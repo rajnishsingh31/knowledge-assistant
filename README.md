@@ -19,6 +19,18 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 * Preserve source file and line-number metadata
 * Create overlapping, line-based chunks
 
+### Incremental Ingestion
+
+* Document-level change detection using content hashes
+* Chunk-level embedding reuse
+* New-document insertion
+* Modified-document synchronization
+* Deleted-document cleanup
+* Unchanged-document skipping
+* Stable document and chunk identifiers
+* Incremental ingestion statistics and timings
+
+
 ### Embeddings and storage
 
 * Generate embeddings locally using Sentence Transformers
@@ -139,7 +151,6 @@ KnowledgeAssistantApplication
                       ├── Logging
                       ├── Startup Metrics
                       └── Pipeline Metrics
-
 ```
 
 ### Dependency construction

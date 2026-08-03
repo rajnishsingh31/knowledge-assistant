@@ -35,6 +35,7 @@ class Document:
     document_id: str
     source_path: Path
     content: str
+    content_hash: str
 
 @dataclass(frozen=True)
 class Chunk:
@@ -47,12 +48,23 @@ class Chunk:
     content: str
     start_line: int
     end_line: int
+    document_hash: str
+    chunk_hash: str
     
 @dataclass(frozen=True)
 class Embedding:
     """An embedding generated for one document chunk."""
 
     chunk_id: str
+    model_name: str
+    dimensions: int
+    vector: tuple[float, ...]
+
+@dataclass(frozen=True)
+class StoredChunkEmbedding:
+    """An indexed embedding associated with chunk content."""
+
+    chunk_hash: str
     model_name: str
     dimensions: int
     vector: tuple[float, ...]

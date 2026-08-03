@@ -1,5 +1,5 @@
 from pathlib import Path
-from knowledge_assistant.application import IngestionResult
+from knowledge_assistant.application import IncrementalIngestionResult
 
 from knowledge_assistant.models import( 
     IndexStats, 
@@ -82,6 +82,8 @@ class ConsoleFormatter:
                 str(record["source_path"])
             ).name
 
+            document_hash = str(record["document_hash"])
+            chunk_hash = str(record["chunk_hash"])
             sections.append(
                 "\n".join(
                     [
@@ -92,6 +94,8 @@ class ConsoleFormatter:
                             f"{record['end_line']}"
                         ),
                         f"Chunk ID: {record['chunk_id']}",
+                        f"Document hash: {document_hash[:12]}",
+                        f"Chunk hash: {chunk_hash[:12]}",
                         f"Model: {record['embedding_model']}",
                         f"Dimensions: {record['dimensions']}",
                         "-" * 60,
@@ -261,26 +265,37 @@ class ConsoleFormatter:
 
     @staticmethod
     def format_ingestion_result(
-        result: IngestionResult,
+        result: IncrementalIngestionResult,
     ) -> str:
-        """Format ingestion results for console output."""
-
         timings = result.timings
 
         return "\n".join(
             [
-                "Ingestion completed.",
+                "Incremental ingestion completed.",
                 "",
-                f"Documents: {result.document_count}",
-                f"Chunks: {result.chunk_count}",
-                f"Embeddings: {result.embedding_count}",
+                (
+                    "Documents discovered: "
+                    f"{result.discovered_document_count}"
+                ),
+                f"Added: {result.added_document_count}",
+                f"Updated: {result.updated_document_count}",
+                f"Deleted: {result.deleted_document_count}",
+                f"Unchanged: {result.unchanged_document_count}",
+                (
+                    "Chunks newly embedded: "
+                    f"{result.embedded_chunk_count}"
+                ),
+                (
+                    "Embeddings reused: "
+                    f"{result.reused_embedding_count}"
+                ),
                 f"Embedding model: {result.embedding_model}",
                 f"Table: {result.table_name}",
                 "",
                 "Pipeline timings",
                 "-" * 60,
                 (
-                    f"Document loading: "
+                    "Document loading: "
                     f"{timings.document_loading_ms:.2f} ms"
                 ),
                 f"Chunking: {timings.chunking_ms:.2f} ms",
@@ -288,4 +303,4 @@ class ConsoleFormatter:
                 f"Indexing: {timings.indexing_ms:.2f} ms",
                 f"Total: {timings.total_ms:.2f} ms",
             ]
-    )
+        )

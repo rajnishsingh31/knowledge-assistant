@@ -24,6 +24,8 @@ class StubRetriever:
                     content="BM25 is a lexical retrieval algorithm.",
                     start_line=1,
                     end_line=2,
+                    document_hash="document-hash-1",
+                    chunk_hash=f"chunk-hash-1",
                 ),
                 retrieval_method="hybrid",
                 score=1.0,

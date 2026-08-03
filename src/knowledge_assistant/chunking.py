@@ -1,5 +1,5 @@
 from uuid import NAMESPACE_URL, uuid5
-
+from hashlib import sha256
 from knowledge_assistant.models import Chunk, Document
 
 
@@ -37,6 +37,10 @@ def chunk_document(
             f"{document.document_id}:{start_line}:{end_line}"
         )
 
+        chunk_hash = sha256(
+            content.encode("utf-8")
+        ).hexdigest()
+
         chunks.append(
             Chunk(
                 chunk_id=str(uuid5(NAMESPACE_URL, chunk_identity)),
@@ -45,6 +49,8 @@ def chunk_document(
                 content=content,
                 start_line=start_line,
                 end_line=end_line,
+                document_hash=document.content_hash,
+                chunk_hash=chunk_hash,
             )
         )
 

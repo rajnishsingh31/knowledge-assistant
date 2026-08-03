@@ -1,6 +1,6 @@
 from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
-
+from hashlib import sha256
 from knowledge_assistant.models import Document
 
 
@@ -31,10 +31,15 @@ def create_document(
 
     resolved_path = path.resolve()
 
+    content_hash = sha256(
+        normalized_content.encode("utf-8")
+    ).hexdigest()
+
     return Document(
         document_id=str(
             uuid5(NAMESPACE_URL, resolved_path.as_uri())
         ),
         source_path=resolved_path,
         content=normalized_content,
+        content_hash=content_hash,
     )

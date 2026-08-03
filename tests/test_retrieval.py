@@ -19,6 +19,8 @@ def create_result(
             content=f"Content for {chunk_id}",
             start_line=1,
             end_line=2,
+            document_hash="document-hash-1",
+            chunk_hash=f"chunk-hash-{chunk_id}",
         ),
         retrieval_method=method,
         score=1.0,

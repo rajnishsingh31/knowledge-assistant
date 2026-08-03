@@ -29,3 +29,10 @@ Modifies file access permissions (e.g., read, write, execute).
 
 ## nano: 
 Opens a user-friendly, terminal-based text editor.
+
+## head:
+The head command displays the beginning of a file
+
+## tail:
+The tail command displays the end of a file.
+

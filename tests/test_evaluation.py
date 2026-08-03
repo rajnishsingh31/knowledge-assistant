@@ -19,6 +19,8 @@ def create_result(filename: str) -> SearchResult:
             content="content",
             start_line=1,
             end_line=1,
+            document_hash="document-hash-1",
+            chunk_hash=f"chunk-hash-1",
         ),
         retrieval_method="vector",
         score=1.0,

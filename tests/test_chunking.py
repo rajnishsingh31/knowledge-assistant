@@ -11,6 +11,7 @@ def create_document(content: str) -> Document:
         document_id="document-1",
         source_path=Path("sample.md"),
         content=content,
+        content_hash="document-hash-1",
     )
 
 
@@ -41,12 +42,15 @@ def test_chunk_document_creates_overlapping_chunks() -> None:
     assert chunks[0].content == (
         "line 1\nline 2\nline 3\nline 4"
     )
+    assert chunks[0].document_hash == "document-hash-1"
 
     assert chunks[1].start_line == 4
     assert chunks[1].end_line == 6
     assert chunks[1].content == (
         "line 4\nline 5\nline 6"
     )
+    assert chunks[1].document_hash == "document-hash-1"
+    assert chunks[0].chunk_hash != chunks[1].chunk_hash
 
 
 def test_chunk_document_returns_one_chunk_for_short_document() -> None:

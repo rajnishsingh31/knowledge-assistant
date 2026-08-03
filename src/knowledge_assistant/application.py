@@ -16,6 +16,8 @@ from knowledge_assistant.models import (
     SearchResult,
     IngestionTimings,
     StartupTimings,
+    Embedding,
+    Chunk,
 )
 from knowledge_assistant.reranking import Reranker
 from knowledge_assistant.retrieval import (
@@ -35,12 +37,16 @@ from time import perf_counter
 logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
-class IngestionResult:
-    """Summary of a completed ingestion operation."""
+class IncrementalIngestionResult:
+    """Summary of incremental document ingestion."""
 
-    document_count: int
-    chunk_count: int
-    embedding_count: int
+    discovered_document_count: int
+    added_document_count: int
+    updated_document_count: int
+    deleted_document_count: int
+    unchanged_document_count: int
+    reused_embedding_count: int
+    embedded_chunk_count: int
     embedding_model: str
     table_name: str
     timings: IngestionTimings
@@ -87,42 +93,114 @@ class KnowledgeAssistantApplication:
     def ingest(
         self,
         source_path: Path | None = None,
-    ) -> IngestionResult:
-        """Load, chunk, embed, and index documents."""
+    ) -> IncrementalIngestionResult:
+        """Incrementally synchronize documents with the vector index."""
 
         total_started = perf_counter()
-
         path = source_path or self._settings.documents.path
 
-        document_loading_started = perf_counter()
+        loading_started = perf_counter()
 
         if path.is_file():
             documents = [
                 self._document_service.load_document(path)
             ]
+            synchronize_deletions = False
         else:
-            documents = (
-                self._document_service.load_documents(path)
-            )
+            documents = self._document_service.load_documents(path)
+            synchronize_deletions = True
 
         document_loading_ms = (
-            perf_counter() - document_loading_started
+            perf_counter() - loading_started
         ) * 1000
 
-        if not documents:
+        if not documents and not synchronize_deletions:
             raise ValueError(
                 f"No supported documents found at: {path}"
             )
 
+        indexed_hashes = (
+            self._vector_store.get_document_hashes()
+        )
+
+        discovered_documents = {
+            document.document_id: document
+            for document in documents
+        }
+
+        added_documents = [
+            document
+            for document in documents
+            if document.document_id not in indexed_hashes
+        ]
+
+        updated_documents = [
+            document
+            for document in documents
+            if (
+                document.document_id in indexed_hashes
+                and indexed_hashes[document.document_id]
+                != document.content_hash
+            )
+        ]
+
+        unchanged_documents = [
+            document
+            for document in documents
+            if (
+                document.document_id in indexed_hashes
+                and indexed_hashes[document.document_id]
+                == document.content_hash
+            )
+        ]
+
+        deleted_document_ids: set[str] = set()
+
+        updated_document_ids = {
+            document.document_id
+            for document in updated_documents
+        }
+
+        
+        if synchronize_deletions:
+            deleted_document_ids = (
+                set(indexed_hashes)
+                - set(discovered_documents)
+            )
+
+        changed_document_ids = {
+            document.document_id
+            for document in updated_documents
+        }
+
+        document_ids_to_delete = (
+            changed_document_ids
+            | deleted_document_ids
+        )
+
+        stored_embeddings = (
+            self._vector_store.get_chunk_embeddings(
+                updated_document_ids
+            )
+        )     
+        
         chunking_started = perf_counter()
+
+        documents_to_index = (
+            added_documents + updated_documents
+        )
 
         chunks = [
             chunk
-            for document in documents
+            for document in documents_to_index
             for chunk in chunk_document(
                 document=document,
-                max_lines=self._settings.documents.max_chunk_lines,
-                overlap_lines=self._settings.documents.overlap_lines,
+                max_lines=(
+                    self._settings.documents.max_chunk_lines
+                ),
+                overlap_lines=(
+                    self._settings.documents.overlap_lines
+                ),
             )
         ]
 
@@ -132,7 +210,53 @@ class KnowledgeAssistantApplication:
 
         embedding_started = perf_counter()
 
-        embeddings = self._embedding_provider.embed_chunks(chunks)
+        reused_embeddings: list[Embedding] = []
+        chunks_to_embed: list[Chunk] = []
+
+        current_model_name = (
+            self._embedding_provider.model_name
+        )
+
+        for chunk in chunks:
+            stored_embedding = stored_embeddings.get(
+                chunk.chunk_hash
+            )
+
+            if (
+                stored_embedding is not None
+                and stored_embedding.model_name
+                == current_model_name
+            ):
+                reused_embeddings.append(
+                    Embedding(
+                        chunk_id=chunk.chunk_id,
+                        model_name=stored_embedding.model_name,
+                        dimensions=stored_embedding.dimensions,
+                        vector=stored_embedding.vector,
+                    )
+                )
+            else:
+                chunks_to_embed.append(chunk)
+
+        new_embeddings = (
+            self._embedding_provider.embed_chunks(
+                chunks_to_embed
+            )
+            if chunks_to_embed
+            else []
+        )
+
+        embedding_by_chunk_id = {
+            embedding.chunk_id: embedding
+            for embedding in (
+                reused_embeddings + new_embeddings
+            )
+        }
+
+        embeddings = [
+            embedding_by_chunk_id[chunk.chunk_id]
+            for chunk in chunks
+        ]
 
         embedding_ms = (
             perf_counter() - embedding_started
@@ -140,7 +264,11 @@ class KnowledgeAssistantApplication:
 
         indexing_started = perf_counter()
 
-        self._vector_store.replace(
+        self._vector_store.delete_documents(
+            document_ids_to_delete
+        )
+
+        self._vector_store.add(
             chunks=chunks,
             embeddings=embeddings,
         )
@@ -162,29 +290,32 @@ class KnowledgeAssistantApplication:
         )
 
         logger.debug(
-            "ingestion_completed documents=%d chunks=%d "
-            "embeddings=%d document_loading_ms=%.2f "
-            "chunking_ms=%.2f embedding_ms=%.2f "
-            "indexing_ms=%.2f total_ms=%.2f",
+            "incremental_ingestion_completed discovered=%d "
+            "added=%d updated=%d deleted=%d unchanged=%d "
+            "embedded_chunks=%d reused_embeddings=%d "
+            "total_ms=%.2f",
             len(documents),
-            len(chunks),
-            len(embeddings),
-            document_loading_ms,
-            chunking_ms,
-            embedding_ms,
-            indexing_ms,
+            len(added_documents),
+            len(updated_documents),
+            len(deleted_document_ids),
+            len(unchanged_documents),
+            len(new_embeddings),
+            len(reused_embeddings),
             total_ms,
         )
 
-        return IngestionResult(
-            document_count=len(documents),
-            chunk_count=len(chunks),
-            embedding_count=len(embeddings),
+        return IncrementalIngestionResult(
+            discovered_document_count=len(documents),
+            added_document_count=len(added_documents),
+            updated_document_count=len(updated_documents),
+            deleted_document_count=len(deleted_document_ids),
+            unchanged_document_count=len(unchanged_documents),
+            embedded_chunk_count=len(new_embeddings),
+            reused_embedding_count=len(reused_embeddings),
             embedding_model=self._embedding_provider.model_name,
             table_name=self._settings.vector_store.table_name,
             timings=timings,
-    )
-
+        )
     
     def _create_retriever(
         self,
