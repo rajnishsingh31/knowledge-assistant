@@ -26,7 +26,7 @@ from knowledge_assistant.application import (
     KnowledgeAssistantApplication,
 )
 from knowledge_assistant.bootstrap import create_application
-from knowledge_assistant.models import StartupTimings
+from knowledge_assistant.models import RetrievalFilter, StartupTimings
 
 logger = logging.getLogger(__name__)
 
@@ -56,11 +56,13 @@ def search_documents(
     query: str,
     limit: int | None,
     strategy_name: str | None,
+    retrieval_filter: RetrievalFilter | None = None,
 ) -> None:
     results = application.search(
         query=query,
         limit=limit,
         strategy_name=strategy_name,
+        retrieval_filter=retrieval_filter,
     )
 
     print(
@@ -92,10 +94,12 @@ def ask_question(
     application: KnowledgeAssistantApplication,
     query: str,
     limit: int | None,
+    retrieval_filter: RetrievalFilter | None = None,
 ) -> None:
     answer = application.ask(
         query=query,
         limit=limit,
+        retrieval_filter=retrieval_filter,
     )
 
     print(answer.content)
@@ -116,10 +120,12 @@ def explain_question(
     application: KnowledgeAssistantApplication,
     query: str,
     limit: int | None,
+    retrieval_filter: RetrievalFilter | None = None,
 ) -> None:
     trace = application.explain(
         query=query,
         limit=limit,
+        retrieval_filter=retrieval_filter,
     )
 
     print(
@@ -165,6 +171,39 @@ def evaluate_retrieval(
 
     separator = "\n\n" + "=" * 70 + "\n\n"
     print(separator.join(outputs))
+
+def create_retrieval_filter(
+        source_names: list[str],
+        extensions: list[str],
+    ) -> RetrievalFilter | None:
+
+        normalized_names = tuple(
+            dict.fromkeys(
+                name.strip()
+                for name in source_names
+                if name.strip()
+            )
+        )
+
+        normalized_extensions = tuple(
+            dict.fromkeys(
+                extension
+                if extension.startswith(".")
+                else f".{extension}"
+                for extension in (
+                    value.strip().lower()
+                    for value in extensions
+                    if value.strip()
+                )
+            )
+        )
+
+        retrieval_filter = RetrievalFilter(
+            source_names=normalized_names,
+            extensions=normalized_extensions,
+        )
+
+        return None if retrieval_filter.is_empty else retrieval_filter
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -223,10 +262,25 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
 
+    search_parser.add_argument(
+        "--file",
+        action="append",
+        default=[],
+        help="Restrict results to a source filename. Repeatable.",
+    )
+
+    search_parser.add_argument(
+        "--type",
+        action="append",
+        default=[],
+        help="Restrict results to a file extension such as pdf or .docx.",
+    )
+
+
     subparsers.add_parser(
         "stats",
         help="Show index statistics.",
-    )
+    )   
 
     inspect_parser = subparsers.add_parser(
         "inspect",
@@ -256,6 +310,21 @@ def build_parser() -> argparse.ArgumentParser:
         help="Maximum source chunks to use. Default: 3.",
     )
 
+    ask_parser.add_argument(
+        "--file",
+        action="append",
+        default=[],
+        help="Restrict results to a source filename. Repeatable.",
+    )
+
+    ask_parser.add_argument(
+        "--type",
+        action="append",
+        default=[],
+        help="Restrict results to a file extension such as pdf or .docx.",
+    )
+
+
     explain_parser = subparsers.add_parser(
         "explain",
         help="Show retrieval, prompt, and answer-generation details.",
@@ -271,6 +340,20 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=3,
         help="Maximum source chunks to use. Default: 3.",
+    )
+
+    explain_parser.add_argument(
+            "--file",
+            action="append",
+            default=[],
+            help="Restrict results to a source filename. Repeatable.",
+        )
+    
+    explain_parser.add_argument(
+            "--type",
+            action="append",
+            default=[],
+            help="Restrict results to a file extension such as pdf or .docx.",
     )
 
     evaluate_parser = subparsers.add_parser(
@@ -363,25 +446,46 @@ def main(argv: Sequence[str] | None = None) -> None:
             )
 
         elif arguments.command == "search":
+
+            retrieval_filter = create_retrieval_filter(
+                source_names=arguments.file,
+                extensions=arguments.type,
+            )
+
             search_documents(
                 application=application,
                 query=arguments.query,
                 limit=arguments.limit,
                 strategy_name=arguments.strategy,
+                retrieval_filter=retrieval_filter,
             )
 
         elif arguments.command == "ask":
+
+            retrieval_filter = create_retrieval_filter(
+                source_names=arguments.file,
+                extensions=arguments.type,
+            )
+
             ask_question(
                 application=application,
                 query=arguments.query,
                 limit=arguments.limit,
+                retrieval_filter=retrieval_filter,
+            
+            )
+        elif arguments.command == "explain":
+
+            retrieval_filter = create_retrieval_filter(
+                source_names=arguments.file,
+                extensions=arguments.type,
             )
 
-        elif arguments.command == "explain":
             explain_question(
                 application=application,
                 query=arguments.query,
                 limit=arguments.limit,
+                retrieval_filter=retrieval_filter,
             )
 
         elif arguments.command == "stats":

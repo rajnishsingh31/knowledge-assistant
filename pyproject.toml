@@ -1,6 +1,6 @@
 [project]
 name = "knowledge-assistant"
-version = "0.6.0"
+version = "0.7.0"
 description = "AI assistant that answers questions over uploaded documents."
 readme = "README.md"
 requires-python = ">=3.13"

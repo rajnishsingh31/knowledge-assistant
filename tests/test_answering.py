@@ -4,6 +4,7 @@ from knowledge_assistant.answering import AnswerService
 from knowledge_assistant.models import (
     Chunk,
     Prompt,
+    RetrievalFilter,
     SearchResult,
 )
 from knowledge_assistant.reranking import IdentityReranker
@@ -14,7 +15,9 @@ class StubRetriever:
         self,
         query: str,
         limit: int,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
+        self.received_filter = retrieval_filter
         return [
             SearchResult(
                 chunk=Chunk(
@@ -53,6 +56,29 @@ class StubLLMProvider:
     def generate(self, prompt: Prompt) -> str:
         return "Generated answer"
 
+
+def test_answer_service_passes_filter_to_retriever() -> None:
+    retriever = StubRetriever()
+
+    service = AnswerService(
+        retriever=retriever,  # type: ignore[arg-type]
+        reranker=IdentityReranker(),
+        prompt_builder=StubPromptBuilder(),  # type: ignore[arg-type]
+        llm_provider=StubLLMProvider(),  # type: ignore[arg-type]
+        retrieval_limit=10,
+        final_limit=3,
+    )
+
+    retrieval_filter = RetrievalFilter(
+        extensions=(".md",),
+    )
+
+    service.generate_trace(
+        query="What is BM25?",
+        retrieval_filter=retrieval_filter,
+    )
+
+    assert retriever.received_filter == retrieval_filter
 
 def test_generate_trace_includes_non_negative_timings() -> None:
     service = AnswerService(

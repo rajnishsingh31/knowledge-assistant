@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
 from knowledge_assistant.embeddings import EmbeddingProvider
-from knowledge_assistant.models import SearchResult
+from knowledge_assistant.models import RetrievalFilter, SearchResult
 from knowledge_assistant.vector_store import LanceDBVectorStore
 from knowledge_assistant.models import Chunk
 
@@ -18,6 +18,7 @@ class RetrievalStrategy(ABC):
         self,
         query: str,
         limit: int,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
         """Retrieve relevant chunks."""
 
@@ -34,12 +35,14 @@ class VectorRetrievalStrategy(RetrievalStrategy):
         self,
         query: str,
         limit: int,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
         query_vector = self._embedding_provider.embed_query(query)
 
         return self._vector_store.search_vector(
             query_vector=query_vector,
             limit=limit,
+            retrieval_filter=retrieval_filter,
         )
 
 class BM25RetrievalStrategy(RetrievalStrategy):
@@ -53,10 +56,12 @@ class BM25RetrievalStrategy(RetrievalStrategy):
         self,
         query: str,
         limit: int,
+        retrieval_filter: RetrievalFilter | None = None
     ) -> list[SearchResult]:
         return self._vector_store.search_text(
             query=query,
             limit=limit,
+            retrieval_filter=retrieval_filter,
         )
 
 @dataclass
@@ -85,6 +90,7 @@ class HybridRetrievalStrategy(RetrievalStrategy):
         self,
         query: str,
         limit: int,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
 
         started = perf_counter()
@@ -92,11 +98,13 @@ class HybridRetrievalStrategy(RetrievalStrategy):
         vector_results = self._vector_strategy.search(
             query=query,
             limit=self._candidate_limit,
+            retrieval_filter=retrieval_filter,
         )
 
         bm25_results = self._bm25_strategy.search(
             query=query,
             limit=self._candidate_limit,
+            retrieval_filter=retrieval_filter,
         )
 
         logger.debug(
@@ -167,6 +175,7 @@ class Retriever:
         self,
         query: str,
         limit: int = 3,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
         normalized_query = query.strip()
 
@@ -179,4 +188,5 @@ class Retriever:
         return self._strategy.search(
             query=normalized_query,
             limit=limit,
+            retrieval_filter=retrieval_filter,
         )

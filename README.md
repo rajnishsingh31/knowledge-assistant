@@ -49,6 +49,21 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 * Per-command retrieval strategy override
 * Configurable candidate retrieval limits
 
+### Metadata Filtering
+
+Restrict retrieval using document metadata.
+
+Supported filters:
+
+* Source filename
+* Document extension
+
+Supported by:
+
+* search
+* ask
+* explain
+
 ### Cross-Encoder Reranking
 
 * Local cross-encoder reranking
@@ -483,6 +498,15 @@ uv run knowledge-assistant search \
 --limit 5
 ```
 
+Filter Search by --file or --type
+```bash
+
+uv run knowledge-assistant search \
+"What is least privilege?" \
+--file cloud-security.docx
+
+```
+
 Use vector retrieval:
 
 ```bash
@@ -526,6 +550,14 @@ uv run knowledge-assistant ask \
 "What is BM25 and when is it useful?"
 ```
 
+Filter Ask by --file or --type
+```bash
+
+uv run knowledge-assistant ask \
+"What happens during containment?" \
+--type pdf
+```
+
 Specify the maximum number of source chunks:
 
 ```bash
@@ -552,6 +584,13 @@ Only this command requires the Ollama server.
 ```bash
 uv run knowledge-assistant explain \
 "What is BM25?"
+```
+
+Filter Explain by --file or --type
+```bash
+uv run knowledge-assistant explain \
+"What is unit testing?" \
+--type xlsx
 ```
 
 The command displays:

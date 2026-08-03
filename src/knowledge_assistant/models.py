@@ -157,3 +157,14 @@ class RetrievalEvaluationSummary:
     top_k_accuracy: float
     results: tuple[EvaluationCaseResult, ...]
 
+@dataclass(frozen=True)
+class RetrievalFilter:
+    """Optional metadata constraints for retrieval."""
+
+    source_names: tuple[str, ...] = ()
+    extensions: tuple[str, ...] = ()
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.source_names and not self.extensions
+

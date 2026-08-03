@@ -3,7 +3,7 @@ from typing import Any
 
 import lancedb
 
-from knowledge_assistant.models import Chunk, Embedding, SearchResult, IndexStats, StoredChunkEmbedding
+from knowledge_assistant.models import Chunk, Embedding, RetrievalFilter, SearchResult, IndexStats, StoredChunkEmbedding
 
 
 class LanceDBVectorStore:
@@ -108,6 +108,8 @@ class LanceDBVectorStore:
                     "chunk_id": chunk.chunk_id,
                     "document_id": chunk.document_id,
                     "source_path": str(chunk.source_path),
+                    "source_name": chunk.source_path.name,
+                    "document_extension": chunk.source_path.suffix.lower(),
                     "content": chunk.content,
                     "start_line": chunk.start_line,
                     "end_line": chunk.end_line,
@@ -127,6 +129,7 @@ class LanceDBVectorStore:
         self,
         query_vector: tuple[float, ...],
         limit: int = 10,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
         """Return chunks using vector similarity."""
 
@@ -138,11 +141,19 @@ class LanceDBVectorStore:
 
         table = self._database.open_table(self._table_name)
 
-        rows = (
-            table.search(list(query_vector))
-            .limit(limit)
-            .to_list()
+        query = table.search(list(query_vector))
+
+        filter_expression = self._build_metadata_filter(
+            retrieval_filter
         )
+
+        if filter_expression:
+            query = query.where(
+                filter_expression,
+                prefilter=True,
+            )
+
+        rows = query.limit(limit).to_list()
 
         return [
             SearchResult(
@@ -158,6 +169,7 @@ class LanceDBVectorStore:
         self,
         query: str,
         limit: int = 10,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
         """Return chunks using BM25 full-text search."""
 
@@ -171,14 +183,22 @@ class LanceDBVectorStore:
 
         table = self._database.open_table(self._table_name)
 
-        rows = (
-            table.search(
-                normalized_query,
-                fts_columns="content",
-            )
-            .limit(limit)
-            .to_list()
+        search_query = table.search(
+        query.strip(),
+        fts_columns="content",
         )
+
+        filter_expression = self._build_metadata_filter(
+            retrieval_filter
+        )
+
+        if filter_expression:
+            search_query = search_query.where(
+                filter_expression,
+                prefilter=True,
+            )
+
+        rows = search_query.limit(limit).to_list()
 
         return [
             SearchResult(
@@ -394,3 +414,45 @@ class LanceDBVectorStore:
             )
             for row in rows
         }
+
+
+    @staticmethod
+    def _build_metadata_filter(
+        retrieval_filter: RetrievalFilter | None,
+    ) -> str | None:
+        if retrieval_filter is None or retrieval_filter.is_empty:
+            return None
+
+        conditions: list[str] = []
+
+        if retrieval_filter.source_names:
+            escaped_names = [
+                name.replace("'", "''")
+                for name in retrieval_filter.source_names
+            ]
+
+            values = ", ".join(
+                f"'{name}'"
+                for name in escaped_names
+            )
+
+            conditions.append(
+                f"source_name IN ({values})"
+            )
+
+        if retrieval_filter.extensions:
+            escaped_extensions = [
+                extension.replace("'", "''")
+                for extension in retrieval_filter.extensions
+            ]
+
+            values = ", ".join(
+                f"'{extension}'"
+                for extension in escaped_extensions
+            )
+
+            conditions.append(
+                f"document_extension IN ({values})"
+            )
+
+        return " AND ".join(conditions)

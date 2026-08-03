@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from knowledge_assistant.models import Chunk, SearchResult
+from knowledge_assistant.models import Chunk, RetrievalFilter, SearchResult
 from knowledge_assistant.retrieval import (
     HybridRetrievalStrategy,
     RetrievalStrategy,
@@ -37,7 +37,9 @@ class StubRetrievalStrategy(RetrievalStrategy):
         self,
         query: str,
         limit: int,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
+        
         return self._results[:limit]
 
 
@@ -72,3 +74,41 @@ def test_hybrid_strategy_rewards_chunks_found_by_both_methods() -> None:
     assert results[0].retrieval_method == "hybrid"
     assert results[0].vector_distance is not None
     assert results[0].bm25_score is not None
+
+class FilterCapturingStrategy(RetrievalStrategy):
+    def __init__(self) -> None:
+        self.received_filter: RetrievalFilter | None = None
+
+    def search(
+        self,
+        query: str,
+        limit: int,
+        retrieval_filter: RetrievalFilter | None = None,
+    ) -> list[SearchResult]:
+        self.received_filter = retrieval_filter
+        return []
+
+def test_hybrid_strategy_passes_filter_to_both_strategies() -> None:
+    vector_strategy = FilterCapturingStrategy()
+    bm25_strategy = FilterCapturingStrategy()
+
+    hybrid = HybridRetrievalStrategy(
+        vector_strategy=vector_strategy,
+        bm25_strategy=bm25_strategy,
+        candidate_limit=10,
+        rrf_k=60,
+    )
+
+    retrieval_filter = RetrievalFilter(
+        source_names=("cloud-security.docx",),
+        extensions=(".docx",),
+    )
+
+    hybrid.search(
+        query="What is least privilege?",
+        limit=3,
+        retrieval_filter=retrieval_filter,
+    )
+
+    assert vector_strategy.received_filter == retrieval_filter
+    assert bm25_strategy.received_filter == retrieval_filter

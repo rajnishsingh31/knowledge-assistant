@@ -4,6 +4,7 @@ from knowledge_assistant.evaluation import RetrievalEvaluator
 from knowledge_assistant.models import (
     Chunk,
     EvaluationCase,
+    RetrievalFilter,
     SearchResult,
 )
 from knowledge_assistant.retrieval import RetrievalStrategy, Retriever
@@ -32,6 +33,7 @@ class QueryBasedStrategy(RetrievalStrategy):
         self,
         query: str,
         limit: int,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
         results_by_query = {
             "first": [

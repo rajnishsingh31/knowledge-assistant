@@ -8,6 +8,7 @@ from knowledge_assistant.models import (
     PipelineTimings,
     RetrievedContext,
     IngestionTimings,
+    RetrievalFilter,
 )
 from knowledge_assistant.prompt_builder import PromptBuilder
 from knowledge_assistant.reranking import Reranker
@@ -48,6 +49,7 @@ class AnswerService:
         query: str,
         retrieval_limit: int | None = None,
         final_limit: int | None = None,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> GenerationTrace:
         effective_retrieval_limit = (
             retrieval_limit or self._retrieval_limit
@@ -63,6 +65,7 @@ class AnswerService:
         candidates = self._retriever.search(
             query=query,
             limit=effective_retrieval_limit,
+            retrieval_filter=retrieval_filter,
         )
         retrieval_ms = (
             perf_counter() - retrieval_started
@@ -146,6 +149,7 @@ class AnswerService:
         query: str,
         retrieval_limit: int | None = None,
         final_limit: int | None = None,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> GeneratedAnswer:
         """Return only the generated answer."""
 
@@ -153,4 +157,5 @@ class AnswerService:
             query=query,
             retrieval_limit=retrieval_limit,
             final_limit=final_limit,
+            retrieval_filter=retrieval_filter,
         ).generated_answer

@@ -13,6 +13,7 @@ from knowledge_assistant.models import (
     GeneratedAnswer,
     GenerationTrace,
     IndexStats,
+    RetrievalFilter,
     SearchResult,
     IngestionTimings,
     StartupTimings,
@@ -347,6 +348,7 @@ class KnowledgeAssistantApplication:
         query: str,
         limit: int | None = None,
         strategy_name: str | None = None,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> list[SearchResult]:
         """Search indexed document chunks."""
 
@@ -359,12 +361,14 @@ class KnowledgeAssistantApplication:
         return retriever.search(
             query=query,
             limit=effective_limit,
+            retrieval_filter=retrieval_filter,
         )
 
     def ask(
         self,
         query: str,
         limit: int | None = None,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> GeneratedAnswer:
         """Generate a grounded answer."""
 
@@ -375,12 +379,14 @@ class KnowledgeAssistantApplication:
         return self._answer_service.answer(
             query=query,
             retrieval_limit=effective_limit,
+            retrieval_filter=retrieval_filter,
         )
 
     def explain(
         self,
         query: str,
         limit: int | None = None,
+        retrieval_filter: RetrievalFilter | None = None,
     ) -> GenerationTrace:
         """Return the complete retrieval and generation trace."""
 
@@ -391,6 +397,7 @@ class KnowledgeAssistantApplication:
         return self._answer_service.generate_trace(
             query=query,
             retrieval_limit=effective_limit,
+            retrieval_filter=retrieval_filter,
         )
 
     def stats(self) -> IndexStats:
