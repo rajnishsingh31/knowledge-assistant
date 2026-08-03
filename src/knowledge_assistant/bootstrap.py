@@ -26,6 +26,7 @@ from knowledge_assistant.reranking import (
     IdentityReranker,
     CrossEncoderReranker,
     )
+from knowledge_assistant.models import StartupTimings
 
 
 def create_retrieval_strategy(
@@ -127,6 +128,7 @@ def create_reranker(
 
 def create_application(
         settings: Settings,
+        startup_timings: StartupTimings | None = None,
     ) -> KnowledgeAssistantApplication:
         """Construct the complete application dependency graph."""
 
@@ -165,6 +167,7 @@ def create_application(
             retrieval_strategies=retrieval_strategies,
             reranker=reranker,
             answer_service=answer_service,
+            startup_timings=startup_timings,
         )
 
 

@@ -73,43 +73,72 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 * Per-query evaluation reports
 * No LLM required
 
+### Testing
+
+* Unit tests with pytest
+* Retrieval evaluation test suite
+* Prompt builder tests
+* Chunking tests
+* Hybrid retrieval tests
+* Reranker tests
+* Evaluation metric tests
+
+### Observability
+
+* Structured application logging
+* Configurable verbose logging
+* Startup timing metrics
+* Retrieval latency metrics
+* Reranking latency metrics
+* Prompt construction timing
+* LLM generation timing
+* End-to-end pipeline timing
+
 ---
 
 ## Architecture
 
 ```text
-                                  CLI
-                                   │
-                                   ▼
-                     KnowledgeAssistantApplication
-                                   │
-       ┌───────────────┬───────────┴───────────┬────────────────┐
-       │               │                       │                │
-       ▼               ▼                       ▼                ▼
-   Ingestion        Retrieval               Answering       Evaluation
-       │               │                       │                │
-       ▼               ▼                       ▼                ▼
-Document Loader    Retriever              AnswerService   RetrievalEvaluator
-       │               │                       │                │
-       ▼               ▼                       ▼                ▼
-    Chunker     RetrievalStrategy          Reranker      Evaluation Dataset
-       │        ┌──────┼──────┐                │                │
-       ▼        │      │      │                ▼                ▼
- Embedding    Vector  BM25  Hybrid       PromptBuilder        Metrics
- Provider       │      │      │                │
-       │        └──────┴──────┘                ▼
-       ▼               │                     Prompt
-Sentence               ▼                       │
-Transformers   Reciprocal Rank Fusion          ▼
-       │               │                  LLMProvider
-       ▼               ▼                       │
-   LanceDB      Candidate Chunks               ▼
-                       │                OllamaProvider
-                       ▼
-                Cross-Encoder Reranker
-                       │
-                       ▼
-                 Final Chunks
+CLI
+ │
+ ▼
+KnowledgeAssistantApplication
+ │
+ ├─────────────── Ingestion
+ │                  │
+ │             DocumentLoader
+ │                  │
+ │              Chunker
+ │                  │
+ │         EmbeddingProvider
+ │                  │
+ │              LanceDB
+ │
+ ├─────────────── Retrieval
+ │                  │
+ │          RetrievalStrategy
+ │        ┌─────────┼──────────┐
+ │        │         │          │
+ │      Vector     BM25     Hybrid
+ │                             │
+ │                             ▼
+ │                    CrossEncoderReranker
+ │
+ ├─────────────── Answering
+ │                  │
+ │            PromptBuilder
+ │                  │
+ │             LLMProvider
+ │                  │
+ │         OllamaProvider
+ │
+ ├─────────────── Evaluation
+ │
+ └─────────────── Observability
+                      │
+                      ├── Logging
+                      ├── Startup Metrics
+                      └── Pipeline Metrics
 
 ```
 
@@ -520,6 +549,32 @@ The command displays:
 * system prompt,
 * user prompt,
 * final generated answer.
+* Metrics: Application Startup, Pipeline Timings
+
+```text
+
+APPLICATION STARTUP
+------------------------------
+Dependency construction: 2810 ms
+
+PIPELINE TIMINGS
+------------------------------
+Retrieval: 82 ms
+Reranking: 141 ms
+Prompt building: 0.1 ms
+Generation: 2143 ms
+Pipeline total: 2366 ms
+
+```
+---
+
+### Verbose Logging
+
+Enable diagnostic logging.
+
+```bash
+knowledge-assistant --verbose <command>
+```
 
 This command is intended for local debugging. It may expose full source content and prompts, so production systems should add redaction before exposing comparable traces.
 
@@ -729,6 +784,18 @@ The current evaluation measures document-level relevance. Some queries may have 
 
 ## Development Workflow
 
+Run tests
+
+```bash
+uv run pytest
+```
+
+Run with verbose logging
+
+```bash
+uv run knowledge-assistant --verbose ask "What is BM25?"
+```
+
 After modifying the documents or chunking configuration, rebuild the index:
 
 ```bash
@@ -762,6 +829,20 @@ uv run knowledge-assistant explain \
 "Why is BM25 useful for error codes?"
 ```
 
+Run retrieval evaluation
+
+```bash
+uv run knowledge-assistant evaluate --strategy hybrid
+```
+
+Run retrieval evaluation with reranking
+
+```bash
+uv run knowledge-assistant evaluate \
+    --strategy hybrid \
+    --rerank
+```
+
 ---
 
 ## Roadmap
@@ -790,11 +871,10 @@ uv run knowledge-assistant explain \
 * Strategy comparison (Vector, BM25, Hybrid)
 * Cross-encoder reranking
 * Before-and-after evaluation reports
-
-### Next
-* Unit and integration tests
-* Prompt versioning
-* Structured logging and latency metrics
+* Structured logging
+* Startup metrics
+* Pipeline latency metrics
+* Unit test suite
 
 ### Later
 

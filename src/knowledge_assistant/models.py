@@ -2,6 +2,32 @@ from dataclasses import dataclass
 from pathlib import Path
 
 @dataclass(frozen=True)
+class PipelineTimings:
+    """Execution durations for one answer-generation request."""
+
+    retrieval_ms: float
+    reranking_ms: float
+    prompt_building_ms: float
+    generation_ms: float
+    total_ms: float
+
+@dataclass(frozen=True)
+class IngestionTimings:
+    document_loading_ms: float
+    chunking_ms: float
+    embedding_ms: float
+    indexing_ms: float
+    total_ms: float
+
+@dataclass(frozen=True)
+class StartupTimings:
+    """Application startup durations."""
+
+    settings_loading_ms: float
+    dependency_construction_ms: float
+    total_startup_ms: float
+
+@dataclass(frozen=True)
 class Document:
 
     """A text document loaded from the local file system."""
@@ -84,6 +110,7 @@ class GenerationTrace:
     retrieved_context: RetrievedContext
     prompt: Prompt
     generated_answer: GeneratedAnswer
+    timings: PipelineTimings
 
 @dataclass(frozen=True)
 class EvaluationCase:
@@ -117,3 +144,4 @@ class RetrievalEvaluationSummary:
     top_1_accuracy: float
     top_k_accuracy: float
     results: tuple[EvaluationCaseResult, ...]
+

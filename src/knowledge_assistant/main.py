@@ -1,6 +1,8 @@
 import argparse
+import logging
 from pathlib import Path
 from typing import Sequence
+from time import perf_counter
 
 from knowledge_assistant.chunking import chunk_document
 from knowledge_assistant.document_loader import load_documents
@@ -30,7 +32,21 @@ from knowledge_assistant.application import (
     KnowledgeAssistantApplication,
 )
 from knowledge_assistant.bootstrap import create_application
+from knowledge_assistant.models import StartupTimings
 
+logger = logging.getLogger(__name__)
+
+
+def configure_logging(verbose: bool) -> None:
+    """Configure application logging."""
+
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.WARNING,
+        format=(
+            "%(asctime)s %(levelname)s "
+            "%(name)s — %(message)s"
+        ),
+    )
 
 def ingest_documents(
     application: KnowledgeAssistantApplication,
@@ -38,12 +54,7 @@ def ingest_documents(
 ) -> None:
     result = application.ingest(source_path)
 
-    print("Ingestion completed.")
-    print(f"Documents: {result.document_count}")
-    print(f"Chunks: {result.chunk_count}")
-    print(f"Embeddings: {result.embedding_count}")
-    print(f"Model: {result.embedding_model}")
-    print(f"Table: {result.table_name}")
+    print(ConsoleFormatter.format_ingestion_result(result))
 
 
 def search_documents(
@@ -120,9 +131,8 @@ def explain_question(
     print(
         ConsoleFormatter.format_generation_trace(
             trace=trace,
-            embedding_model_name=(
-                application.embedding_model_name
-            ),
+            embedding_model_name=application.embedding_model_name,
+            startup_timings=application.startup_timings,
         )
     )
 
@@ -169,6 +179,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="knowledge-assistant",
         description="Search local knowledge using semantic retrieval.",
+    )
+
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable diagnostic logging.",
     )
 
     subparsers = parser.add_subparsers(
@@ -306,12 +322,45 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: Sequence[str] | None = None) -> None:
+    cli_started = perf_counter()
+
+    settings_started = perf_counter()
     settings = get_settings()
+    settings_loading_ms = (
+        perf_counter() - settings_started
+    ) * 1000
+
     parser = build_parser()
     arguments = parser.parse_args(argv)
+    configure_logging(arguments.verbose)
 
     try:
+        construction_started = perf_counter()
         application = create_application(settings)
+        dependency_construction_ms = (
+            perf_counter() - construction_started
+        ) * 1000
+
+        total_startup_ms = (
+            perf_counter() - cli_started
+        ) * 1000
+
+        startup_timings = StartupTimings(
+            settings_loading_ms=settings_loading_ms,
+            dependency_construction_ms=dependency_construction_ms,
+            total_startup_ms=total_startup_ms,
+        )
+
+        application.record_startup_timings(startup_timings)
+
+        logger.debug(
+            "application_started settings_loading_ms=%.2f "
+            "dependency_construction_ms=%.2f "
+            "total_startup_ms=%.2f",
+            settings_loading_ms,
+            dependency_construction_ms,
+            total_startup_ms,
+        )
 
         if arguments.command == "ingest":
             ingest_documents(
@@ -358,7 +407,15 @@ def main(argv: Sequence[str] | None = None) -> None:
                 top_k=arguments.top_k,
                 include_details=arguments.details,
                 use_reranker=arguments.rerank,
-       )
+            )
+
+        total_cli_ms = (perf_counter() - cli_started) * 1000
+
+        logger.debug(
+            "command_completed command=%s total_cli_ms=%.2f",
+            arguments.command,
+            total_cli_ms,
+        )
 
     except (
         FileNotFoundError,
@@ -366,7 +423,6 @@ def main(argv: Sequence[str] | None = None) -> None:
         ValueError,
     ) as error:
         parser.error(str(error))
-
 
 
 

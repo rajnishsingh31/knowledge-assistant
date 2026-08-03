@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +15,8 @@ from knowledge_assistant.models import (
     GenerationTrace,
     IndexStats,
     SearchResult,
+    IngestionTimings,
+    StartupTimings,
 )
 from knowledge_assistant.reranking import Reranker
 from knowledge_assistant.retrieval import (
@@ -28,7 +31,9 @@ from knowledge_assistant.evaluation import (
 from knowledge_assistant.models import (
     RetrievalEvaluationSummary,
 )
+from time import perf_counter
 
+logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class IngestionResult:
@@ -39,6 +44,7 @@ class IngestionResult:
     embedding_count: int
     embedding_model: str
     table_name: str
+    timings: IngestionTimings
 
 
 class KnowledgeAssistantApplication:
@@ -48,7 +54,6 @@ class KnowledgeAssistantApplication:
     def default_retrieval_limit(self) -> int:
         return self._settings.retrieval.default_limit
 
-
     def __init__(
         self,
         settings: Settings,
@@ -57,6 +62,7 @@ class KnowledgeAssistantApplication:
         retrieval_strategies: dict[str, RetrievalStrategy],
         reranker: Reranker,
         answer_service: AnswerService,
+         startup_timings: StartupTimings | None = None,
     ) -> None:
         self._settings = settings
         self._embedding_provider = embedding_provider
@@ -64,6 +70,18 @@ class KnowledgeAssistantApplication:
         self._retrieval_strategies = retrieval_strategies
         self._reranker = reranker
         self._answer_service = answer_service
+        self._startup_timings = startup_timings
+
+    
+    def record_startup_timings(
+        self,
+        timings: StartupTimings,
+    ) -> None:
+        self._startup_timings = timings
+
+    @property
+    def startup_timings(self) -> StartupTimings | None:
+        return self._startup_timings
 
     def ingest(
         self,
@@ -71,37 +89,86 @@ class KnowledgeAssistantApplication:
     ) -> IngestionResult:
         """Load, chunk, embed, and index documents."""
 
+        total_started = perf_counter()
+
         path = source_path or self._settings.documents.path
+
+        document_loading_started = perf_counter()
 
         if path.is_file():
             documents = [load_document(path)]
         else:
             documents = load_documents(path)
 
+        document_loading_ms = (
+            perf_counter() - document_loading_started
+        ) * 1000
+
         if not documents:
             raise ValueError(
                 f"No supported documents found at: {path}"
             )
+
+        chunking_started = perf_counter()
 
         chunks = [
             chunk
             for document in documents
             for chunk in chunk_document(
                 document=document,
-                max_lines=(
-                    self._settings.documents.max_chunk_lines
-                ),
-                overlap_lines=(
-                    self._settings.documents.overlap_lines
-                ),
+                max_lines=self._settings.documents.max_chunk_lines,
+                overlap_lines=self._settings.documents.overlap_lines,
             )
         ]
 
+        chunking_ms = (
+            perf_counter() - chunking_started
+        ) * 1000
+
+        embedding_started = perf_counter()
+
         embeddings = self._embedding_provider.embed_chunks(chunks)
+
+        embedding_ms = (
+            perf_counter() - embedding_started
+        ) * 1000
+
+        indexing_started = perf_counter()
 
         self._vector_store.replace(
             chunks=chunks,
             embeddings=embeddings,
+        )
+
+        indexing_ms = (
+            perf_counter() - indexing_started
+        ) * 1000
+
+        total_ms = (
+            perf_counter() - total_started
+        ) * 1000
+
+        timings = IngestionTimings(
+            document_loading_ms=document_loading_ms,
+            chunking_ms=chunking_ms,
+            embedding_ms=embedding_ms,
+            indexing_ms=indexing_ms,
+            total_ms=total_ms,
+        )
+
+        logger.debug(
+            "ingestion_completed documents=%d chunks=%d "
+            "embeddings=%d document_loading_ms=%.2f "
+            "chunking_ms=%.2f embedding_ms=%.2f "
+            "indexing_ms=%.2f total_ms=%.2f",
+            len(documents),
+            len(chunks),
+            len(embeddings),
+            document_loading_ms,
+            chunking_ms,
+            embedding_ms,
+            indexing_ms,
+            total_ms,
         )
 
         return IngestionResult(
@@ -110,8 +177,10 @@ class KnowledgeAssistantApplication:
             embedding_count=len(embeddings),
             embedding_model=self._embedding_provider.model_name,
             table_name=self._settings.vector_store.table_name,
-        )
+            timings=timings,
+    )
 
+    
     def _create_retriever(
         self,
         strategy_name: str | None = None,

@@ -1,11 +1,13 @@
 from pathlib import Path
+from knowledge_assistant.application import IngestionResult
 
 from knowledge_assistant.models import( 
     IndexStats, 
     SearchResult,
     SearchResult,
     GenerationTrace,
-    RetrievalEvaluationSummary
+    RetrievalEvaluationSummary,
+    StartupTimings
 )
 
 
@@ -104,13 +106,14 @@ class ConsoleFormatter:
     def format_generation_trace(
         trace: GenerationTrace,
         embedding_model_name: str,
+        startup_timings: StartupTimings | None = None,
     ) -> str:
-
         """Format the complete RAG execution trace."""
 
         answer = trace.generated_answer
         context = trace.retrieved_context
         prompt = trace.prompt
+        timings = trace.timings
 
         retrieved_results = ConsoleFormatter.format_search_results(
             list(context.results)
@@ -118,23 +121,57 @@ class ConsoleFormatter:
 
         separator = "=" * 70
 
-        return "\n".join(
+        lines: list[str] = [
+            separator,
+            "Knowledge Assistant — Explain",
+            separator,
+            "",
+            "QUESTION",
+            "-" * 70,
+            context.query,
+            "",
+            "CONFIGURATION",
+            "-" * 70,
+            f"Retrieved chunks: {len(context.results)}",
+            f"Embedding model: {embedding_model_name}",
+            f"LLM provider: {answer.provider_name}",
+            f"LLM model: {answer.model_name}",
+            "",
+        ]
+
+        if startup_timings is not None:
+            lines.extend(
+                [
+                    "APPLICATION STARTUP",
+                    "-" * 70,
+                    (
+                        "Settings loading: "
+                        f"{startup_timings.settings_loading_ms:.2f} ms"
+                    ),
+                    (
+                        "Dependency/model construction: "
+                        f"{startup_timings.dependency_construction_ms:.2f} ms"
+                    ),
+                    (
+                        "Total startup: "
+                        f"{startup_timings.total_startup_ms:.2f} ms"
+                    ),
+                    "",
+                ]
+            )
+
+        lines.extend(
             [
-                separator,
-                "Knowledge Assistant — Explain",
-                separator,
-                "",
-                "QUESTION",
+                "PIPELINE TIMINGS",
                 "-" * 70,
-                context.query,
-                "",
-                "CONFIGURATION",
-                "-" * 70,
-                f"Retrieval strategy: Vector search",
-                f"Retrieval limit: {len(context.results)}",
-                f"Embedding model: {embedding_model_name}",
-                f"LLM provider: {answer.provider_name}",
-                f"LLM model: {answer.model_name}",
+                f"Retrieval: {timings.retrieval_ms:.2f} ms",
+                f"Reranking: {timings.reranking_ms:.2f} ms",
+                (
+                    "Prompt building: "
+                    f"{timings.prompt_building_ms:.2f} ms"
+                ),
+                f"Generation: {timings.generation_ms:.2f} ms",
+                f"Pipeline total: {timings.total_ms:.2f} ms",
                 "",
                 "RETRIEVED CHUNKS",
                 "-" * 70,
@@ -154,7 +191,9 @@ class ConsoleFormatter:
                 "",
                 separator,
             ]
-    )
+        )
+
+        return "\n".join(lines)
 
     @staticmethod
     def format_retrieval_evaluation(
@@ -219,3 +258,34 @@ class ConsoleFormatter:
                 )
 
         return "\n".join(lines).rstrip()
+
+    @staticmethod
+    def format_ingestion_result(
+        result: IngestionResult,
+    ) -> str:
+        """Format ingestion results for console output."""
+
+        timings = result.timings
+
+        return "\n".join(
+            [
+                "Ingestion completed.",
+                "",
+                f"Documents: {result.document_count}",
+                f"Chunks: {result.chunk_count}",
+                f"Embeddings: {result.embedding_count}",
+                f"Embedding model: {result.embedding_model}",
+                f"Table: {result.table_name}",
+                "",
+                "Pipeline timings",
+                "-" * 60,
+                (
+                    f"Document loading: "
+                    f"{timings.document_loading_ms:.2f} ms"
+                ),
+                f"Chunking: {timings.chunking_ms:.2f} ms",
+                f"Embedding: {timings.embedding_ms:.2f} ms",
+                f"Indexing: {timings.indexing_ms:.2f} ms",
+                f"Total: {timings.total_ms:.2f} ms",
+            ]
+    )

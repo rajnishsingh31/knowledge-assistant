@@ -1,3 +1,5 @@
+import logging
+from time import perf_counter
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -6,6 +8,7 @@ from knowledge_assistant.models import SearchResult
 from knowledge_assistant.vector_store import LanceDBVectorStore
 from knowledge_assistant.models import Chunk
 
+logger = logging.getLogger(__name__)
 
 class RetrievalStrategy(ABC):
     """Contract for retrieving relevant chunks."""
@@ -83,6 +86,9 @@ class HybridRetrievalStrategy(RetrievalStrategy):
         query: str,
         limit: int,
     ) -> list[SearchResult]:
+
+        started = perf_counter()
+        
         vector_results = self._vector_strategy.search(
             query=query,
             limit=self._candidate_limit,
@@ -91,6 +97,13 @@ class HybridRetrievalStrategy(RetrievalStrategy):
         bm25_results = self._bm25_strategy.search(
             query=query,
             limit=self._candidate_limit,
+        )
+
+        logger.debug(
+            "hybrid_candidates query=%r vector=%d bm25=%d",
+            query,
+            len(vector_results),
+            len(bm25_results),
         )
 
         entries: dict[str, _FusionEntry] = {}
@@ -118,6 +131,16 @@ class HybridRetrievalStrategy(RetrievalStrategy):
             entries.values(),
             key=lambda entry: entry.fusion_score,
             reverse=True,
+        )
+
+        duration_ms = (perf_counter() - started) * 1000
+
+        logger.debug(
+            "hybrid_fusion_completed unique_candidates=%d "
+            "returned=%d duration_ms=%.2f",
+            len(entries),
+            min(limit, len(ranked_entries)),
+            duration_ms,
         )
 
         return [
