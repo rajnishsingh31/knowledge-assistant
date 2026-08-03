@@ -881,12 +881,12 @@ uv run knowledge-assistant evaluate \
 * Startup metrics
 * Pipeline latency metrics
 * Unit test suite
+* PDF, Excel and Word support
 
 ### Later
 
 * Incremental document ingestion
 * Metadata filtering
-* PDF and Word support
 * OpenAI provider
 * Conversation memory
 * REST API
