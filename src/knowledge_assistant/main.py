@@ -205,6 +205,18 @@ def create_retrieval_filter(
 
         return None if retrieval_filter.is_empty else retrieval_filter
 
+def rebuild_index(
+    application: KnowledgeAssistantApplication,
+    source_path: Path | None,
+) -> None:
+    result = application.rebuild(source_path)
+
+    print(
+        ConsoleFormatter.format_ingestion_result(
+            result
+        )
+    )
+
 
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line argument parser."""
@@ -394,6 +406,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Apply the configured reranker before evaluation.",
     )
 
+    rebuild_parser = subparsers.add_parser(
+        "rebuild",
+        help="Delete and rebuild the complete index.",
+    )
+
+    rebuild_parser.add_argument(
+        "path",
+        nargs="?",
+        type=Path,
+        default=None,
+        help="File or directory to index.",
+    )
+
     return parser
 
 
@@ -506,6 +531,12 @@ def main(argv: Sequence[str] | None = None) -> None:
                 include_details=arguments.details,
                 use_reranker=arguments.rerank,
             )
+
+        elif arguments.command == "rebuild":
+            rebuild_index(
+                application=application,
+                source_path=arguments.path,
+        )
 
         total_cli_ms = (perf_counter() - cli_started) * 1000
 

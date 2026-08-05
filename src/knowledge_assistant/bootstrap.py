@@ -104,6 +104,7 @@ def create_vector_store(
         return LanceDBVectorStore(
             database_path=settings.vector_store.database_path,
             table_name=settings.vector_store.table_name,
+            schema_version=settings.vector_store.schema_version,
         )
 
     raise ValueError(

@@ -317,6 +317,16 @@ class KnowledgeAssistantApplication:
             table_name=self._settings.vector_store.table_name,
             timings=timings,
         )
+
+    def rebuild(
+        self,
+        source_path: Path | None = None,
+    ) -> IncrementalIngestionResult:
+        """Delete and completely rebuild the index."""
+
+        self._vector_store.drop()
+
+        return self.ingest(source_path)
     
     def _create_retriever(
         self,

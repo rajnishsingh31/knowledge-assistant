@@ -168,3 +168,10 @@ class RetrievalFilter:
     def is_empty(self) -> bool:
         return not self.source_names and not self.extensions
 
+@dataclass(frozen=True)
+class IndexMetadata:
+    """Metadata describing the persisted vector index."""
+
+    schema_version: int
+    table_name: str
+    embedding_model: str

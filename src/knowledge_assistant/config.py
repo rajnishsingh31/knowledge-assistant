@@ -21,6 +21,7 @@ class VectorStoreSettings(BaseModel):
     provider: Literal["lancedb"] = "lancedb"
     database_path: Path = Path("data/lancedb")
     table_name: str = "knowledge_chunks_minilm_v1"
+    schema_version: int = Field(default=2, gt=0)
 
 
 class RetrievalSettings(BaseModel):

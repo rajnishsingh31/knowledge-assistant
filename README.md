@@ -454,6 +454,10 @@ uv run knowledge-assistant inspect --help
 uv run knowledge-assistant evaluate --help
 ```
 
+```bash
+uv run knowledge-assistant rebuild --help
+```
+
 ---
 
 ## CLI Commands
@@ -481,6 +485,17 @@ uv run knowledge-assistant ingest ./my-notes
 Ingestion currently rebuilds the configured vector table from the supplied source. Incremental upsert is planned.
 
 ---
+
+### Ingest documents
+
+The documents ingested are versioned. If the schema_version changes, you can rebuild the store using rebuild command.
+
+```bash
+uv run knowledge-assistant rebuild
+```
+
+---
+
 
 ### Search documents
 

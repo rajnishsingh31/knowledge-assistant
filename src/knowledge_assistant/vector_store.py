@@ -2,8 +2,16 @@ from pathlib import Path
 from typing import Any
 
 import lancedb
-
-from knowledge_assistant.models import Chunk, Embedding, RetrievalFilter, SearchResult, IndexStats, StoredChunkEmbedding
+import json
+from knowledge_assistant.models import(
+     Chunk,
+     Embedding,
+     RetrievalFilter,
+     SearchResult,
+     IndexStats, 
+     StoredChunkEmbedding,
+     IndexMetadata,
+)
 
 
 class LanceDBVectorStore:
@@ -26,9 +34,13 @@ class LanceDBVectorStore:
         self,
         database_path: Path,
         table_name: str,
+        schema_version: int,
     ) -> None:
         self._database_path = database_path
         self._table_name = table_name
+        self._schema_version = schema_version
+        self._database_path.mkdir(parents=True, exist_ok=True)
+        self._metadata_path = self._database_path / "index-metadata.json"
         self._database = lancedb.connect(str(database_path))
 
     def replace(
@@ -58,13 +70,17 @@ class LanceDBVectorStore:
             "content",
             replace=True,
         )
+
+        self._write_index_metadata(
+            embedding_model=embeddings[0].model_name,
+        )
     
     def get_document_hashes(self) -> dict[str, str]:
         """Return indexed document IDs and their document hashes."""
 
         if not self.exists():
             return {}
-
+        self.validate_schema()
         table = self._database.open_table(self._table_name)
 
         rows = (
@@ -139,6 +155,7 @@ class LanceDBVectorStore:
         if limit <= 0:
             raise ValueError("Limit must be greater than zero")
 
+        self.validate_schema()
         table = self._database.open_table(self._table_name)
 
         query = table.search(list(query_vector))
@@ -181,6 +198,7 @@ class LanceDBVectorStore:
         if limit <= 0:
             raise ValueError("Limit must be greater than zero")
 
+        self.validate_schema()
         table = self._database.open_table(self._table_name)
 
         search_query = table.search(
@@ -223,7 +241,7 @@ class LanceDBVectorStore:
             raise ValueError(
                 f"Vector table does not exist: {self._table_name}"
             )
-
+        self.validate_schema()
         table = self._database.open_table(self._table_name)
 
         rows = table.to_arrow().to_pylist()
@@ -280,6 +298,7 @@ class LanceDBVectorStore:
                 f"Vector table does not exist: {self._table_name}"
             )
 
+        self.validate_schema()
         table = self._database.open_table(self._table_name)
 
         columns = [
@@ -325,6 +344,10 @@ class LanceDBVectorStore:
                 replace=True,
             )
 
+            self._write_index_metadata(
+                embedding_model=embeddings[0].model_name,
+            )
+
             return
 
         table = self._database.open_table(
@@ -343,6 +366,7 @@ class LanceDBVectorStore:
         if not document_ids or not self.exists():
             return
 
+        self.validate_schema()
         table = self._database.open_table(
             self._table_name
         )
@@ -382,6 +406,7 @@ class LanceDBVectorStore:
             for document_id in escaped_ids
         )
 
+        self.validate_schema()
         table = self._database.open_table(
             self._table_name
         )
@@ -456,3 +481,82 @@ class LanceDBVectorStore:
             )
 
         return " AND ".join(conditions)
+
+    def _write_index_metadata(
+        self,
+        embedding_model: str,
+    ) -> None:
+        metadata = {
+            "schema_version": self._schema_version,
+            "table_name": self._table_name,
+            "embedding_model": embedding_model,
+        }
+
+        self._metadata_path.write_text(
+            json.dumps(metadata, indent=2),
+            encoding="utf-8",
+        )
+
+    def get_index_metadata(
+        self,
+    ) -> IndexMetadata | None:
+        if not self._metadata_path.exists():
+            return None
+
+        raw_metadata = json.loads(
+            self._metadata_path.read_text(
+                encoding="utf-8"
+            )
+        )
+
+        return IndexMetadata(
+            schema_version=int(
+                raw_metadata["schema_version"]
+            ),
+            table_name=str(raw_metadata["table_name"]),
+            embedding_model=str(
+                raw_metadata["embedding_model"]
+            ),
+        )
+
+    def validate_schema(self) -> None:
+        """Verify that the persisted index schema is compatible."""
+
+        if not self.exists():
+            return
+
+        metadata = self.get_index_metadata()
+
+        if metadata is None:
+            raise RuntimeError(
+                "The existing vector index has no schema metadata. "
+                "Rebuild it with: "
+                "uv run knowledge-assistant rebuild"
+            )
+
+        if metadata.schema_version != self._schema_version:
+            raise RuntimeError(
+                "Vector index schema mismatch. "
+                f"Expected version {self._schema_version}, "
+                f"but found version {metadata.schema_version}. "
+                "Rebuild it with: "
+                "uv run knowledge-assistant rebuild"
+            )
+
+        if metadata.table_name != self._table_name:
+            raise RuntimeError(
+                "Vector index table-name mismatch. "
+                f"Expected {self._table_name}, "
+                f"but found {metadata.table_name}."
+            )
+
+    def drop(self) -> None:
+        """Delete the vector table and its metadata."""
+
+        if self.exists():
+            self._database.drop_table(
+                self._table_name
+            )
+
+        if self._metadata_path.exists():
+            self._metadata_path.unlink()
