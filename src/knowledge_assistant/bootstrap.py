@@ -46,6 +46,48 @@ from knowledge_assistant.document_loaders.word import (
     WordDocumentLoader,
 )
 
+from knowledge_assistant.chunking import (
+    ChunkingStrategy,
+    LineChunkingStrategy,
+    StructureAwareChunkingStrategy,
+)
+
+def create_chunking_strategy(
+    settings: Settings,
+) -> ChunkingStrategy:
+    """Create the configured document chunking strategy."""
+
+    if settings.documents.chunking_strategy == "line":
+        return LineChunkingStrategy(
+            max_lines=(
+                settings.documents.max_chunk_lines
+            ),
+            overlap_lines=(
+                settings.documents.overlap_lines
+            ),
+        )
+
+    if (
+        settings.documents.chunking_strategy
+        == "structure-aware"
+    ):
+        return StructureAwareChunkingStrategy(
+            max_chunk_lines=(
+                settings.documents.max_chunk_lines
+            ),
+            overlap_lines=(
+                settings.documents.overlap_lines
+            ),
+            max_section_lines=(
+                settings.documents.max_section_lines
+            ),
+        )
+
+    raise ValueError(
+        "Unsupported chunking strategy: "
+        f"{settings.documents.chunking_strategy}"
+    )
+
 
 def create_retrieval_strategy(
     settings: Settings,
@@ -164,6 +206,10 @@ def create_application(
             loader_factory=document_loader_factory
         )
 
+        chunking_strategy = create_chunking_strategy(
+            settings
+        )
+
         embedding_provider = create_embedding_provider(settings)
         vector_store = create_vector_store(settings)
 
@@ -195,6 +241,7 @@ def create_application(
         return KnowledgeAssistantApplication(
             settings=settings,
             document_service=document_service,
+            chunking_strategy=chunking_strategy,
             embedding_provider=embedding_provider,
             vector_store=vector_store,
             retrieval_strategies=retrieval_strategies,

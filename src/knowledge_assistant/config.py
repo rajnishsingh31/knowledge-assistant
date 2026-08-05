@@ -8,8 +8,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class DocumentSettings(BaseModel):
     path: Path = Path("documents")
+    chunking_strategy: Literal[
+        "line",
+        "structure-aware",
+    ] = "structure-aware"
     max_chunk_lines: int = Field(default=8, gt=0)
     overlap_lines: int = Field(default=2, ge=0)
+    max_section_lines: int = Field(default=24, gt=0)
 
 
 class EmbeddingSettings(BaseModel):
@@ -21,7 +26,7 @@ class VectorStoreSettings(BaseModel):
     provider: Literal["lancedb"] = "lancedb"
     database_path: Path = Path("data/lancedb")
     table_name: str = "knowledge_chunks_minilm_v1"
-    schema_version: int = Field(default=2, gt=0)
+    schema_version: int = Field(default=3, gt=0)
 
 
 class RetrievalSettings(BaseModel):

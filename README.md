@@ -19,6 +19,17 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 * Preserve source file and line-number metadata
 * Create overlapping, line-based chunks
 
+### Structure-Aware Chunking
+
+* Configurable line-based and structure-aware chunking
+* Markdown heading boundaries
+* PDF page boundaries
+* Excel worksheet boundaries
+* Word table markers
+* Fixed-line fallback for oversized sections
+* Stable chunk hashing and source line tracking
+
+
 ### Incremental Ingestion
 
 * Document-level change detection using content hashes
@@ -949,6 +960,7 @@ uv run knowledge-assistant evaluate \
 * PDF, Excel and Word support
 * Incremental document ingestion
 * Metadata filtering
+* Structure-Aware chunking
 
 ### Later
 

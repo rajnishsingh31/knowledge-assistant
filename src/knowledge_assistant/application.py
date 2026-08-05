@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from knowledge_assistant.answering import AnswerService
-from knowledge_assistant.chunking import chunk_document
+from knowledge_assistant.chunking import ChunkingStrategy, chunk_document
 from knowledge_assistant.config import Settings
 from knowledge_assistant.document_loader import (
     DocumentService,
@@ -64,6 +64,7 @@ class KnowledgeAssistantApplication:
         self,
         settings: Settings,
         document_service: DocumentService,
+        chunking_strategy: ChunkingStrategy,
         embedding_provider: EmbeddingProvider,
         vector_store: LanceDBVectorStore,
         retrieval_strategies: dict[str, RetrievalStrategy],
@@ -73,6 +74,7 @@ class KnowledgeAssistantApplication:
     ) -> None:
         self._settings = settings
         self._document_service = document_service
+        self._chunking_strategy = chunking_strategy
         self._embedding_provider = embedding_provider
         self._vector_store = vector_store
         self._retrieval_strategies = retrieval_strategies
@@ -194,14 +196,8 @@ class KnowledgeAssistantApplication:
         chunks = [
             chunk
             for document in documents_to_index
-            for chunk in chunk_document(
-                document=document,
-                max_lines=(
-                    self._settings.documents.max_chunk_lines
-                ),
-                overlap_lines=(
-                    self._settings.documents.overlap_lines
-                ),
+            for chunk in self._chunking_strategy.chunk(
+                document
             )
         ]
 
