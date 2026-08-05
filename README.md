@@ -11,6 +11,10 @@ The project intentionally avoids high-level AI orchestration frameworks in its e
 
 ## Current Capabilities
 
+### Supports
+* REST API 
+* CLI
+
 ### Document ingestion
 
 * Supported file types: Markdown (`.md`), Plain text (`.txt`), PDF (`.pdf`), Microsoft Word (`.docx`), Microsoft Excel (`.xlsx`)
@@ -137,9 +141,15 @@ Supported by:
 ## Architecture
 
 ```text
-CLI
- │
- ▼
+       Transport Layer
+
+┌──────────────┴──────────────┐
+│                             │
+CLI                         FastAPI
+│                             │
+└──────────────┬──────────────┘
+               │
+               ▼
 KnowledgeAssistantApplication
  │
  ├─────────────── Ingestion
@@ -227,15 +237,23 @@ knowledge-assistant/
 ├── documents/
 ├── evaluations/
 │   └── retrieval.json
+├── tools/
+│   └── generate_sample_documents.py
 ├── src/
 │   └── knowledge_assistant/
+│       ├── api/
+│       │   ├── __init__.py
+│       │   ├── app.py
+│       │   ├── dependencies.py
+│       │   ├── mappers.py
+│       │   ├── schemas.py
+│       │   └── server.py
+│       ├── document_loaders/
 │       ├── answering.py
 │       ├── application.py
 │       ├── bootstrap.py
 │       ├── chunking.py
 │       ├── config.py
-│       ├── document_loader.py
-│       ├── embeddings.py
 │       ├── evaluation.py
 │       ├── formatters.py
 │       ├── llm.py
@@ -245,16 +263,8 @@ knowledge-assistant/
 │       ├── reranking.py
 │       ├── retrieval.py
 │       └── vector_store.py
-│       └── document_loaders/
-│                   └── pdf.py
-│                   └── excel.py
-│                   └── text.py
-│                   └── word.py (.text, .md)
-│                         
 ├── tests/
 ├── .env.example
-├── .gitignore
-├── .python-version
 ├── pyproject.toml
 ├── uv.lock
 └── README.md
@@ -814,6 +824,133 @@ Generated answers may paraphrase source text. Every material claim should still 
 
 ---
 
+## REST API Help
+
+### REST API
+
+* FastAPI-based HTTP API
+* Shared application layer between CLI and API
+* Application dependencies initialized once during server startup
+* Pydantic request and response validation
+* Automatically generated OpenAPI documentation
+* Swagger UI for interactive endpoint testing
+* Metadata filters supported by retrieval endpoints
+* Local Ollama-based grounded answer generation
+
+### API Endpoints
+
+| Method | Endpoint   | Purpose                        |
+| ------ | ---------- | ------------------------------ |
+| `GET`  | `/health`  | Check API health               |
+| `GET`  | `/stats`   | View vector-index statistics   |
+| `POST` | `/search`  | Search indexed document chunks |
+| `POST` | `/ask`     | Generate a grounded answer     |
+| `POST` | `/ingest`  | Incrementally ingest documents |
+| `POST` | `/rebuild` | Rebuild the complete index     |
+
+### Start the API
+
+Start the API using the project command:
+
+```bash
+uv run knowledge-assistant-api
+```
+
+For development with automatic source-code reload:
+
+```bash
+uv run uvicorn \
+knowledge_assistant.api.app:app \
+--host 127.0.0.1 \
+--port 8000 \
+--reload
+```
+
+The API is available at:
+
+```text
+http://127.0.0.1:8000
+```
+
+Interactive Swagger documentation:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+OpenAPI schema:
+
+```text
+http://127.0.0.1:8000/openapi.json
+```
+
+Stop the server by pressing `Ctrl+C` in the terminal where it is running.
+
+### API Examples
+
+Check API health:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Search documents:
+
+```bash
+curl -X POST \
+http://127.0.0.1:8000/search \
+-H "Content-Type: application/json" \
+-d '{
+  "query": "What is least privilege?",
+  "limit": 3,
+  "strategy": "hybrid",
+  "filters": {
+    "source_names": ["cloud-security.docx"]
+  }
+}'
+```
+
+Generate a grounded answer:
+
+```bash
+curl -X POST \
+http://127.0.0.1:8000/ask \
+-H "Content-Type: application/json" \
+-d '{
+  "query": "What is least privilege?",
+  "limit": 3,
+  "filters": {
+    "extensions": ["docx"]
+  }
+}'
+```
+
+Incrementally ingest the configured document directory:
+
+```bash
+curl -X POST \
+http://127.0.0.1:8000/ingest \
+-H "Content-Type: application/json" \
+-d '{
+  "path": "documents"
+}'
+```
+
+Rebuild the complete vector index:
+
+```bash
+curl -X POST \
+http://127.0.0.1:8000/rebuild \
+-H "Content-Type: application/json" \
+-d '{
+  "path": "documents"
+}'
+```
+
+The `/ask` endpoint may take longer than `/search` because it performs retrieval, cross-encoder reranking, prompt construction, and local LLM generation before returning a response.
+
+---
+
 ## Engineering Decisions
 
 ### Local-first architecture
@@ -961,14 +1098,23 @@ uv run knowledge-assistant evaluate \
 * Incremental document ingestion
 * Metadata filtering
 * Structure-Aware chunking
+* --- Completed API Milsestones -------
+* Shared CLI and REST application layer
+* FastAPI lifecycle-based dependency initialization
+* Health and index-statistics endpoints
+* Search endpoint with strategy and metadata filters
+* Grounded question-answering endpoint
+* Incremental ingestion endpoint
+* Full-index rebuild endpoint
+* OpenAPI and Swagger documentation
+
 
 ### Later
 
-* Conversation memory
-* REST API
-* Web interface
-* Multi-document reasoning
 * Agentic workflows
+* Multi-document reasoning
+* Web interface
+
 
 ---
 

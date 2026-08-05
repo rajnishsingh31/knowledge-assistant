@@ -55,22 +55,29 @@ class OllamaProvider(LLMProvider):
         self,
         prompt: Prompt,
     ) -> str:
-        response = self._client.chat(
-            model=self.model_name,
-            messages=[
-                {
-                    "role": "system",
-                    "content": prompt.system,
+        try:
+            response = self._client.chat(
+                model=self.model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": prompt.system,
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt.user,
+                    },
+                ],
+                options={
+                    "temperature": self._temperature,
                 },
-                {
-                    "role": "user",
-                    "content": prompt.user,
-                },
-            ],
-            options={
-                "temperature": self._temperature,
-            },
-        )
+            )
+        except Exception as error:
+             raise RuntimeError(
+                "Could not generate an answer using Ollama. "
+                "Verify that Ollama is running and the configured "
+                f"model '{self._model_name}' is available."
+             )from error
 
         if response.message.content is None:
             raise ValueError("Model returned no content")
