@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, Literal
 
 @dataclass(frozen=True)
 class PipelineTimings:
@@ -175,3 +176,4 @@ class IndexMetadata:
     schema_version: int
     table_name: str
     embedding_model: str
+

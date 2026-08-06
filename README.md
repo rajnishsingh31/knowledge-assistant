@@ -6,6 +6,12 @@ Knowledge Assistant indexes local documents and supports semantic search, keywor
 
 The project intentionally avoids high-level AI orchestration frameworks in its early stages. Its purpose is to demonstrate the engineering behind production RAG systems, including provider abstraction, dependency injection, typed configuration, retrieval strategies, citations, and pipeline explainability.
 
+### Agent Runtime
+
+The project now includes a lightweight agent runtime built on top of the existing RAG platform. Instead of invoking retrieval or answer generation directly, an LLM first plans which capability to use, executes the selected tool under runtime control, and then synthesizes a grounded response from the tool observation.
+
+The current implementation focuses on deterministic, traceable execution rather than autonomous behavior. Every tool invocation is validated, executed through a registry, and recorded as part of the execution trace.
+
 
 ---
 
@@ -136,57 +142,47 @@ Supported by:
 * LLM generation timing
 * End-to-end pipeline timing
 
+### Agentic AI
+
+* Tool-based agent runtime
+* LLM planner
+* Tool specifications
+* Runtime policy enforcement
+* Observation synthesis
+* Execution tracing
+* Modular agent architecture
+
+
 ---
 
 ## Architecture
 
 ```text
-       Transport Layer
-
-┌──────────────┴──────────────┐
-│                             │
-CLI                         FastAPI
-│                             │
-└──────────────┬──────────────┘
-               │
-               ▼
-KnowledgeAssistantApplication
- │
- ├─────────────── Ingestion
- │                  │
- │             DocumentLoader
- │                  │
- │              Chunker
- │                  │
- │         EmbeddingProvider
- │                  │
- │              LanceDB
- │
- ├─────────────── Retrieval
- │                  │
- │          RetrievalStrategy
- │        ┌─────────┼──────────┐
- │        │         │          │
- │      Vector     BM25     Hybrid
- │                             │
- │                             ▼
- │                    CrossEncoderReranker
- │
- ├─────────────── Answering
- │                  │
- │            PromptBuilder
- │                  │
- │             LLMProvider
- │                  │
- │         OllamaProvider
- │
- ├─────────────── Evaluation
- │
- └─────────────── Observability
-                      │
-                      ├── Logging
-                      ├── Startup Metrics
-                      └── Pipeline Metrics
+                                User
+                                  │
+             ┌────────────────────┴────────────────────┐
+             │                                         │
+            CLI                                      FastAPI
+             │                                         │
+             └────────────────────┬────────────────────┘
+                                  │
+                                  ▼
+                       KnowledgeAssistantApplication
+                                  │
+                ┌─────────────────┴──────────────────┐
+                │                                    │
+         Traditional RAG                     Agent Runtime
+                │                                    │
+        Retrieval + LLM                  Planner → Policy → Tools
+                │                                    │
+                ▼                                    ▼
+         Grounded Answer                        Observation
+                                                     │
+                                                     ▼
+                                                Synthesizer
+                                                     │
+                                                     ▼
+                                                Final Answer
 ```
 
 ### Dependency construction
@@ -241,7 +237,24 @@ knowledge-assistant/
 │   └── generate_sample_documents.py
 ├── src/
 │   └── knowledge_assistant/
-│       ├── api/
+│    │   ├── agent/
+│    │   ├── planner.py
+│    │   ├── runtime.py
+│    │   ├── synthesizer.py
+│    │   ├── policy.py
+│    │   ├── prompts.py
+│    │   ├── synthesis_prompts.py
+│    │   ├── registry.py
+│    │   ├── validation.py
+│    │   ├── models.py
+│    │   └── tools/
+│    │       ├── base.py
+│    │       ├── specifications.py
+│    │       ├── search_documents.py
+│    │       ├── answer_documents.py
+│    │       ├── inspect_index.py
+│    │       └── index_stats.py
+│    ├── api/
 │       │   ├── __init__.py
 │       │   ├── app.py
 │       │   ├── dependencies.py
@@ -477,6 +490,10 @@ uv run knowledge-assistant evaluate --help
 
 ```bash
 uv run knowledge-assistant rebuild --help
+```
+
+```bash
+uv run knowledge-assistant agent --help
 ```
 
 ---
@@ -824,6 +841,34 @@ Generated answers may paraphrase source text. Every material claim should still 
 
 ---
 
+## Example - Agent Runtime
+
+```bash
+uv run knowledge-assistant agent \
+"What is least privilege?" \
+--trace
+```
+
+Output
+
+```
+Least privilege ensures users and processes receive only the minimum
+permissions required to perform their intended tasks.
+
+AGENT TRACE
+------------------------------------------------------------
+Step: 1
+Tool: answer_from_documents
+Arguments:
+{
+  "query": "What is least privilege?"
+}
+
+```
+
+---
+
+
 ## REST API Help
 
 ### REST API
@@ -1107,11 +1152,11 @@ uv run knowledge-assistant evaluate \
 * Incremental ingestion endpoint
 * Full-index rebuild endpoint
 * OpenAPI and Swagger documentation
+* Agentic workflows
 
 
 ### Later
 
-* Agentic workflows
 * Multi-document reasoning
 * Web interface
 
