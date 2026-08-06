@@ -336,6 +336,7 @@ def create_agent_runtime(
         planner=planner,
         tool_registry=tool_registry,
         response_synthesizer=response_synthesizer,
+        max_iterations=3,
     )
 
 

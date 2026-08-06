@@ -144,13 +144,17 @@ Supported by:
 
 ### Agentic AI
 
-* Tool-based agent runtime
+* Tool-based and multi-step agent runtime
+* Agent context
 * LLM planner
 * Tool specifications
 * Runtime policy enforcement
+* Runtime safeguards
 * Observation synthesis
 * Execution tracing
 * Modular agent architecture
+* Configurable iteration limit
+
 
 
 ---
