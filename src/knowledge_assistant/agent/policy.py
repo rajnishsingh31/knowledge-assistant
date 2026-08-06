@@ -1,6 +1,5 @@
-# agent/policy.py
-
 from knowledge_assistant.agent.models import (
+    AgentContext,
     AgentToolCall,
     FinalAnswerDecision,
     PlannerDecision,
@@ -28,8 +27,6 @@ _CONVERSATIONAL_PREFIXES = (
 
 
 def _is_conversational_query(query: str) -> bool:
-    """Return whether the request needs no factual information."""
-
     normalized_query = (
         query.strip()
         .lower()
@@ -45,15 +42,18 @@ def _is_conversational_query(query: str) -> bool:
 
 
 def enforce_grounded_tool_policy(
-    query: str,
+    context: AgentContext,
     decision: PlannerDecision,
 ) -> PlannerDecision:
-    """Require document tools for non-conversational requests."""
+    """Require a tool before answering factual requests."""
 
     if not isinstance(decision, FinalAnswerDecision):
         return decision
 
-    if _is_conversational_query(query):
+    if context.steps:
+        return decision
+
+    if _is_conversational_query(context.query):
         return decision
 
     return ToolCallDecision(
@@ -61,7 +61,7 @@ def enforce_grounded_tool_policy(
         tool_call=AgentToolCall(
             tool_name="answer_from_documents",
             arguments={
-                "query": query.strip(),
+                "query": context.query,
             },
         ),
     )

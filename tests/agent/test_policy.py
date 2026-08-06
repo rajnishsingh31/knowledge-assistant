@@ -1,11 +1,12 @@
 from knowledge_assistant.agent.models import (
+    AgentContext,
     FinalAnswerDecision,
     ToolCallDecision,
+    AgentToolCall,
 )
 from knowledge_assistant.agent.policy import (
     enforce_grounded_tool_policy,
 )
-from knowledge_assistant.agent.models import AgentToolCall
 
 def test_policy_allows_conversational_answer() -> None:
     decision = FinalAnswerDecision(
@@ -14,7 +15,10 @@ def test_policy_allows_conversational_answer() -> None:
     )
 
     result = enforce_grounded_tool_policy(
-        query="Say hello",
+        context=AgentContext(
+            query="Say hello",
+            steps=(),
+        ),
         decision=decision,
     )
 
@@ -28,7 +32,10 @@ def test_policy_forces_tool_for_knowledge_question() -> None:
     )
 
     result = enforce_grounded_tool_policy(
-        query="What is least privilege?",
+        context=AgentContext(
+            query="What is least privilege?",
+            steps=(),
+        ),
         decision=decision,
     )
 
@@ -52,7 +59,10 @@ def test_policy_preserves_existing_tool_call() -> None:
     )
 
     result = enforce_grounded_tool_policy(
-        query="How many documents are indexed?",
+        context=AgentContext(
+            query="How many documents are indexed?",
+            steps=(),
+        ),
         decision=decision,
     )
 

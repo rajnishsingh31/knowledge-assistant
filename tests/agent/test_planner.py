@@ -10,6 +10,8 @@ from knowledge_assistant.agent.tools.specifications import (
 )
 from knowledge_assistant.models import Prompt
 
+from knowledge_assistant.agent.models import AgentContext
+
 
 class StubLLMProvider:
     @property
@@ -60,12 +62,12 @@ def test_planner_returns_validated_tool_call() -> None:
     )
 
     decision = planner.plan(
-        query="Find information about BM25",
+        context=AgentContext(
+            query="Find information about BM25",
+            steps=(),
+        ),
         specifications=specifications,
     )
 
     assert isinstance(decision, ToolCallDecision)
-    assert (
-        decision.tool_call.tool_name
-        == "search_documents"
-    )
+    assert decision.tool_call.tool_name == "search_documents"

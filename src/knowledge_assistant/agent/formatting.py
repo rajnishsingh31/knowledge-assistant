@@ -1,5 +1,7 @@
 from knowledge_assistant.agent.models import (
     AgentResponse,
+    FinalAnswerDecision,
+    ToolCallDecision,
 )
 
 
@@ -19,6 +21,11 @@ class AgentConsoleFormatter:
                 f"{response.provider_name}/"
                 f"{response.model_name}"
             ),
+            "",
+            (
+                "Stopped reason: "
+                f"{response.stop_reason}"
+            ),
         ]
 
         if include_trace:
@@ -30,27 +37,50 @@ class AgentConsoleFormatter:
                 ]
             )
 
-            if not response.steps:
+            for iteration in response.iterations:
                 lines.append(
-                    "No tool call was required."
+                    f"Iteration: {iteration.iteration_number}"
                 )
 
-            for step in response.steps:
-                lines.extend(
-                    [
-                        f"Step: {step.step_number}",
-                        (
-                            "Tool: "
-                            f"{step.tool_call.tool_name}"
-                        ),
-                        (
-                            "Arguments: "
-                            f"{step.tool_call.arguments}"
-                        ),
-                        "Observation:",
-                        step.tool_result.content,
-                        "",
-                    ]
-                )
+                decision = iteration.decision
 
+                if isinstance(decision, ToolCallDecision):
+                    lines.extend(
+                        [
+                            "Decision: call_tool",
+                            f"Tool: {decision.tool_call.tool_name}",
+                            (
+                                "Arguments: "
+                                f"{decision.tool_call.arguments}"
+                            ),
+                        ]
+                    )
+
+                    if iteration.tool_result is not None:
+                        lines.extend(
+                            [
+                                "Observation:",
+                                iteration.tool_result.content,
+                            ]
+                        )
+                    else:
+                        lines.append(
+                            "Observation: Tool was not executed."
+                        )
+
+                elif isinstance(
+                    decision,
+                    FinalAnswerDecision,
+                ):
+                    lines.extend(
+                        [
+                            "Decision: final_answer",
+                            f"Answer: {decision.answer}",
+                        ]
+                    )
+
+                lines.append("")
+
+            
+            
         return "\n".join(lines).rstrip()

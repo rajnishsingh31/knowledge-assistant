@@ -12,11 +12,11 @@ AgentToolName = Literal[
 
 @dataclass(frozen=True)
 class AgentToolCall:
-
     """A validated tool call selected by the planner."""
 
     tool_name: AgentToolName
     arguments: dict[str, Any]
+
 
 @dataclass(frozen=True)
 class ToolCallDecision:
@@ -28,7 +28,7 @@ class ToolCallDecision:
 
 @dataclass(frozen=True)
 class FinalAnswerDecision:
-    """Planner decision to answer without another tool call."""
+    """Planner decision to finish the execution."""
 
     decision_type: Literal["final_answer"]
     answer: str
@@ -47,12 +47,32 @@ class AgentToolResult:
 
 @dataclass(frozen=True)
 class AgentStep:
-    """One executed tool-use step."""
+    """One completed tool-use step."""
 
     step_number: int
     tool_call: AgentToolCall
     tool_result: AgentToolResult
 
+
+@dataclass(frozen=True)
+class AgentContext:
+    """Accumulated state for one agent execution."""
+
+    query: str
+    steps: tuple[AgentStep, ...]
+
+    @property
+    def next_step_number(self) -> int:
+        return len(self.steps) + 1
+
+
+@dataclass(frozen=True)
+class AgentIteration:
+    """One planner decision and its optional tool observation."""
+
+    iteration_number: int
+    decision: PlannerDecision
+    tool_result: AgentToolResult | None = None
 
 @dataclass(frozen=True)
 class AgentResponse:
@@ -61,5 +81,8 @@ class AgentResponse:
     query: str
     answer: str
     steps: tuple[AgentStep, ...]
+    iterations: tuple[AgentIteration, ...]
     provider_name: str
     model_name: str
+    stop_reason: str
+

@@ -1,5 +1,6 @@
 import json
 
+from knowledge_assistant.agent.models import AgentContext
 from knowledge_assistant.agent.tools.specifications import (
     ToolSpecification,
 )
@@ -8,90 +9,68 @@ from knowledge_assistant.models import Prompt
 
 PLANNER_SYSTEM_PROMPT = """
 You are a tool-selection planner for a local knowledge assistant.
-You are not an answering model. Your primary responsibility is selecting tools.
-For any factual, technical, document-related, index-related, or knowledge
-question, you must call a tool.
-Use final_answer only for conversational responses that require no factual
-information, such as greetings or acknowledgements.
+
+You are not the final answering model. Your responsibility is to decide
+the next action.
 
 Choose exactly one action:
 
 1. Call one available tool.
-2. Return a final answer only when no tool is required.
+2. Return a final answer when the accumulated observations are sufficient.
 
 Rules:
-- Use get_index_stats for questions about document count, chunk count,
-  embedding models, dimensions, table names, or index statistics.
-- Use inspect_index only for requests to inspect raw indexed records.
-- Use search_documents when the user wants relevant excerpts, evidence,
-  or source passages.
-- Use answer_from_documents for direct questions that should be answered
-  from indexed documents.
-- When the request asks for indexed data or document knowledge, call the
-  appropriate tool before answering.
-- Never guess or invent tool results.
-- Never invent a tool name.
-- Include only parameters defined by the selected tool.
-- Return exactly one JSON object.
-- Return valid JSON only.
+- Use get_index_stats for index counts, table information, embedding
+  models, or dimensions.
+- Use inspect_index only for raw index inspection requests.
+- Use search_documents when relevant passages or sources are needed.
+- Use answer_from_documents for a grounded answer from indexed documents.
+- Review all previous tool calls and observations before selecting another
+  action.
+- Do not repeat an identical tool call unless the previous observation
+  contained an error.
+- Do not invent facts or tool results.
+- Use final_answer only when prior observations contain enough information.
+- Return exactly one valid JSON object.
 - Do not wrap JSON in Markdown.
-- Do not include explanations or text outside the JSON object.
 """.strip()
 
 
-TOOL_CALL_RESPONSE_EXAMPLE = """
+RESPONSE_INSTRUCTIONS = """
+Return exactly one JSON object.
+
+To call a tool:
+
 {
   "decision_type": "call_tool",
-  "tool_name": "get_index_stats",
-  "arguments": {}
+  "tool_name": "search_documents",
+  "arguments": {
+    "query": "search query",
+    "limit": 5
+  }
 }
-""".strip()
 
+To finish:
 
-FINAL_ANSWER_RESPONSE_EXAMPLE = """
 {
   "decision_type": "final_answer",
-  "answer": "Your response"
+  "answer": "Final answer based only on the observations"
 }
-""".strip()
-
-
-RESPONSE_INSTRUCTIONS = f"""
-Return exactly one JSON object using one of the following formats.
-
-When a tool is required, return only:
-
-{TOOL_CALL_RESPONSE_EXAMPLE}
-
-When no tool is required, return only:
-
-{FINAL_ANSWER_RESPONSE_EXAMPLE}
 
 Important:
-- Return only one object, never both.
+- Return one object only.
 - decision_type must be a top-level property.
-- For a tool call, decision_type must be exactly "call_tool".
-- For a direct answer, decision_type must be exactly "final_answer".
-- Do not wrap the response inside "tool_call" or "final_answer".
-- Do not use alternative property names such as "action", "type",
-  or "decision".
-- Never invent information that an available tool can retrieve.
-- Do not include Markdown, code fences, comments, or explanatory text.
+- Never include text outside the JSON object.
 """.strip()
 
 
 def build_planner_prompt(
-    query: str,
+    context: AgentContext,
     specifications: tuple[ToolSpecification, ...],
 ) -> Prompt:
-    """Build a prompt that asks the model to select one action."""
+    """Build the next-action planning prompt."""
 
-    normalized_query = query.strip()
-
-    if not normalized_query:
-        raise ValueError(
-            "Planner query cannot be empty"
-        )
+    if not context.query.strip():
+        raise ValueError("Planner query cannot be empty")
 
     if not specifications:
         raise ValueError(
@@ -115,17 +94,31 @@ def build_planner_prompt(
         for specification in specifications
     ]
 
+    previous_steps = [
+        {
+            "step_number": step.step_number,
+            "tool_name": step.tool_call.tool_name,
+            "arguments": step.tool_call.arguments,
+            "observation": step.tool_result.content,
+        }
+        for step in context.steps
+    ]
+
     user_prompt = "\n\n".join(
         [
             "Available tools:",
-            json.dumps(
-                tools_payload,
-                indent=2,
+            json.dumps(tools_payload, indent=2),
+            "Original user request:",
+            context.query,
+            "Previous tool steps:",
+            (
+                json.dumps(previous_steps, indent=2)
+                if previous_steps
+                else "No tools have been called yet."
             ),
             "Output instructions:",
             RESPONSE_INSTRUCTIONS,
-            "User request:",
-            normalized_query,
+            "Choose the next action.",
         ]
     )
 

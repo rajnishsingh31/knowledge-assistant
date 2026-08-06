@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
+import logging
 
 from knowledge_assistant.agent.models import (
+    AgentContext,
     PlannerDecision,
 )
 from knowledge_assistant.agent.prompts import (
@@ -14,77 +16,52 @@ from knowledge_assistant.agent.validation import (
 )
 from knowledge_assistant.llm import LLMProvider
 
-import logging
 
 logger = logging.getLogger(__name__)
 
 
 class AgentPlanner(ABC):
-    """Choose the next action for an agent request."""
-
     @property
     @abstractmethod
     def provider_name(self) -> str:
-        """Return the planner provider name."""
+        ...
 
     @property
     @abstractmethod
     def model_name(self) -> str:
-        """Return the planner model name."""
+        ...
 
     @abstractmethod
     def plan(
         self,
-        query: str,
-        specifications: tuple[
-            ToolSpecification,
-            ...
-        ],
+        context: AgentContext,
+        specifications: tuple[ToolSpecification, ...],
     ) -> PlannerDecision:
-        """Return one validated planner decision."""
+        """Choose the next action."""
 
 
 class LLMAgentPlanner(AgentPlanner):
-    """Use an LLM to select a tool or final answer."""
-    
-    @property
-    def provider_name(self) -> str:
-        return self._llm_provider.provider_name
-
-
-    @property
-    def model_name(self) -> str:
-        return self._llm_provider.model_name
-
-
     def __init__(
         self,
         llm_provider: LLMProvider,
     ) -> None:
         self._llm_provider = llm_provider
 
+    @property
+    def provider_name(self) -> str:
+        return self._llm_provider.provider_name
+
+    @property
+    def model_name(self) -> str:
+        return self._llm_provider.model_name
+
     def plan(
         self,
-        query: str,
-        specifications: tuple[
-            ToolSpecification,
-            ...
-        ],
+        context: AgentContext,
+        specifications: tuple[ToolSpecification, ...],
     ) -> PlannerDecision:
-        normalized_query = query.strip()
-
-        if not normalized_query:
-            raise ValueError(
-                "Agent query cannot be empty"
-            )
-
-        if not specifications:
-            raise ValueError(
-                "Planner requires at least one tool"
-            )
-
         prompt = build_planner_prompt(
-            query=normalized_query,
+            context=context,
             specifications=specifications,
         )
 
