@@ -52,6 +52,37 @@ from knowledge_assistant.chunking import (
     StructureAwareChunkingStrategy,
 )
 
+from knowledge_assistant.agent.registry import (
+    AgentToolRegistry,
+)
+from knowledge_assistant.agent.tools import (
+    AnswerFromDocumentsTool,
+    GetIndexStatsTool,
+    InspectIndexTool,
+    SearchDocumentsTool,
+)
+
+from knowledge_assistant.retrieval import (
+    BM25RetrievalStrategy,
+    HybridRetrievalStrategy,
+    RetrievalStrategy,
+    VectorRetrievalStrategy,
+)
+
+from knowledge_assistant.agent.planner import (
+    AgentPlanner,
+    LLMAgentPlanner,
+)
+
+from knowledge_assistant.agent.runtime import (
+    AgentRuntime,
+)
+
+from knowledge_assistant.agent.synthesizer import (
+    AgentResponseSynthesizer,
+    LLMAgentResponseSynthesizer,
+)
+
 def create_chunking_strategy(
     settings: Settings,
 ) -> ChunkingStrategy:
@@ -250,12 +281,62 @@ def create_application(
             startup_timings=startup_timings,
         )
 
+def create_agent_tool_registry(
+    application: KnowledgeAssistantApplication,
+) -> AgentToolRegistry:
+    return AgentToolRegistry(
+        tools=[
+            SearchDocumentsTool(application),
+            AnswerFromDocumentsTool(application),
+            GetIndexStatsTool(application),
+            InspectIndexTool(application),
+        ]
+    )
 
-from knowledge_assistant.retrieval import (
-    BM25RetrievalStrategy,
-    HybridRetrievalStrategy,
-    RetrievalStrategy,
-    VectorRetrievalStrategy,
-)
+def create_agent_planner(
+    settings: Settings,
+) -> AgentPlanner:
+    """Create the configured agent planner."""
+
+    return LLMAgentPlanner(
+        llm_provider=create_llm_provider(settings)
+    )
+
+def create_agent_response_synthesizer(
+    llm_provider: LLMProvider,
+) -> AgentResponseSynthesizer:
+    """Create the agent final-response synthesizer."""
+
+    return LLMAgentResponseSynthesizer(
+        llm_provider=llm_provider
+    )
+
+def create_agent_runtime(
+    settings: Settings,
+    application: KnowledgeAssistantApplication,
+) -> AgentRuntime:
+    """Create the agent planner, tools, and runtime."""
+
+    llm_provider = create_llm_provider(settings)
+ 
+    planner = create_agent_planner(settings)
+
+    response_synthesizer = (
+        LLMAgentResponseSynthesizer(
+            llm_provider=llm_provider
+        )
+    )
+
+
+    tool_registry = create_agent_tool_registry(
+        application
+    )
+
+    return AgentRuntime(
+        planner=planner,
+        tool_registry=tool_registry,
+        response_synthesizer=response_synthesizer,
+    )
+
 
 

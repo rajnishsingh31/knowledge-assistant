@@ -28,6 +28,14 @@ from knowledge_assistant.application import (
 from knowledge_assistant.bootstrap import create_application
 from knowledge_assistant.models import RetrievalFilter, StartupTimings
 
+from knowledge_assistant.agent.formatting import (
+    AgentConsoleFormatter,
+)
+from knowledge_assistant.bootstrap import (
+    create_agent_runtime,
+    create_application,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -214,6 +222,26 @@ def rebuild_index(
     print(
         ConsoleFormatter.format_ingestion_result(
             result
+        )
+    )
+
+def run_agent(
+    application: KnowledgeAssistantApplication,
+    settings: Settings,
+    query: str,
+    include_trace: bool,
+) -> None:
+    runtime = create_agent_runtime(
+        settings=settings,
+        application=application,
+    )
+
+    response = runtime.run(query)
+
+    print(
+        AgentConsoleFormatter.format_response(
+            response=response,
+            include_trace=include_trace,
         )
     )
 
@@ -419,6 +447,22 @@ def build_parser() -> argparse.ArgumentParser:
         help="File or directory to index.",
     )
 
+    agent_parser = subparsers.add_parser(
+        "agent",
+        help="Run the tool-using knowledge agent.",
+    )
+
+    agent_parser.add_argument(
+        "query",
+        help="Request for the agent.",
+    )
+
+    agent_parser.add_argument(
+        "--trace",
+        action="store_true",
+        help="Display planner and tool execution details.",
+    )
+
     return parser
 
 
@@ -536,7 +580,15 @@ def main(argv: Sequence[str] | None = None) -> None:
             rebuild_index(
                 application=application,
                 source_path=arguments.path,
-        )
+            )
+
+        elif arguments.command == "agent":
+            run_agent(
+                application=application,
+                settings=settings,
+                query=arguments.query,
+                include_trace=arguments.trace,
+            )
 
         total_cli_ms = (perf_counter() - cli_started) * 1000
 
