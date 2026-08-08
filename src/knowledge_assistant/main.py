@@ -15,12 +15,10 @@ from knowledge_assistant.retrieval import Retriever
 import os
 from knowledge_assistant.answering import AnswerService
 from knowledge_assistant.llm import (
-    DEFAULT_OLLAMA_HOST,
-    DEFAULT_OLLAMA_MODEL,
     LLMProvider,
-    OllamaProvider,
+    OllamaLLMProvider,
 )
-from knowledge_assistant.prompt_builder import PromptBuilder
+from knowledge_assistant.llm.prompt_builder import PromptBuilder
 from knowledge_assistant.config import Settings, get_settings
 from knowledge_assistant.application import (
     KnowledgeAssistantApplication,

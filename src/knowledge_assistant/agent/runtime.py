@@ -11,15 +11,19 @@ from knowledge_assistant.agent.models import (
     ToolCallDecision,
     AgentIteration,
 )
-from knowledge_assistant.agent.planner import AgentPlanner
+from knowledge_assistant.llm.planner import AgentPlanner
 from knowledge_assistant.agent.policy import (
     enforce_grounded_tool_policy,
+    enforce_answer_evidence_policy,
 )
 from knowledge_assistant.agent.registry import (
     AgentToolRegistry,
 )
-from knowledge_assistant.agent.synthesizer import (
+from knowledge_assistant.llm.synthesizer import (
     AgentResponseSynthesizer,
+)
+from knowledge_assistant.agent.evidence import (
+    select_synthesis_steps,
 )
 
 
@@ -85,6 +89,26 @@ class AgentRuntime:
                 decision=original_decision,
             )
 
+            focused_decision  = enforce_answer_evidence_policy(
+                context=context,
+                decision=decision,
+            )
+
+            if focused_decision != decision:
+                if isinstance(
+                    focused_decision,
+                    ToolCallDecision,
+                ):
+                    logger.warning(
+                        "answer_evidence_policy_override "
+                        "iteration=%d replacement_tool=%s",
+                        iteration_number,
+                        focused_decision.tool_call.tool_name,
+                    )
+
+            decision = focused_decision
+
+
             if decision != original_decision:
                 logger.warning(
                     "planner_policy_override "
@@ -106,15 +130,22 @@ class AgentRuntime:
                         )
                 )
                 
-                return AgentResponse(
-                    query=normalized_query,
-                    answer=decision.answer,
-                    steps=context.steps,
+                # Direct conversational response with no tool evidence.
+                if not context.steps:
+                    return AgentResponse(
+                        query=normalized_query,
+                        answer=decision.answer,
+                        steps=(),
+                        iterations=tuple(iterations),
+                        provider_name=self._planner.provider_name,
+                        model_name=self._planner.model_name,
+                        stop_reason="final_answer",
+                    )
+
+                # Once evidence exists, only the synthesizer writes the answer.
+                return self._finish_from_observations(
+                    context=context,
                     iterations=tuple(iterations),
-                    provider_name=(
-                        self._planner.provider_name
-                    ),
-                    model_name=self._planner.model_name,
                     stop_reason="final_answer",
                 )
 
@@ -192,14 +223,15 @@ class AgentRuntime:
                 "Agent cannot synthesize without observations"
             )
 
-        latest_step = context.steps[-1]
+        # Retrieve best evidence (answer_from_documents) if available, else return all.
+        synthesis_steps = select_synthesis_steps(
+            context.steps
+        )
 
-        final_answer = (
-            self._response_synthesizer.synthesize(
-                query=context.query,
-                tool_call=latest_step.tool_call,
-                tool_result=latest_step.tool_result,
-            )
+
+        final_answer = self._response_synthesizer.synthesize(
+            query=context.query,
+            steps=synthesis_steps,
         )
 
         return AgentResponse(

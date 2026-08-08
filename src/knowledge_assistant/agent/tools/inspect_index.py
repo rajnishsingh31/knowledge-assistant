@@ -1,7 +1,10 @@
 import json
 from typing import Any
 
-from knowledge_assistant.agent.models import AgentToolResult
+from knowledge_assistant.agent.models import (
+    AgentObservation,
+    AgentToolResult,
+)
 from knowledge_assistant.agent.tools.base import AgentTool
 from knowledge_assistant.agent.tools.specifications import (
     ToolParameter,
@@ -51,9 +54,15 @@ class InspectIndexTool(AgentTool):
 
         return AgentToolResult(
             tool_name=self.specification.name,
-            content=json.dumps(
-                records,
-                indent=2,
-                default=str,
+            observation=AgentObservation(
+                content=json.dumps(
+                    records,
+                    indent=2,
+                    default=str,
+                ),
+                metadata={
+                    "record_count": len(records),
+                    "limit": limit,
+                },
             ),
         )

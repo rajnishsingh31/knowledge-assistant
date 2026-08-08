@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
+from knowledge_assistant.llm.models import Prompt
 
 @dataclass(frozen=True)
 class PipelineTimings:
@@ -109,14 +110,6 @@ class GeneratedAnswer:
     sources: tuple[SearchResult, ...]
 
 @dataclass(frozen=True)
-class Prompt:
-    """A provider-neutral prompt sent to an LLM."""
-
-    system: str
-    user: str
-
-
-@dataclass(frozen=True)
 class GenerationTrace:
     """Complete trace of one grounded answer-generation request."""
 
@@ -176,4 +169,12 @@ class IndexMetadata:
     schema_version: int
     table_name: str
     embedding_model: str
+
+@dataclass(frozen=True)
+class RetrievalTrace:
+    """Retrieved evidence with retrieval-stage timings."""
+
+    context: RetrievedContext
+    retrieval_ms: float
+    reranking_ms: float
 

@@ -6,8 +6,10 @@ from knowledge_assistant.agent.models import (
     FinalAnswerDecision,
     PlannerDecision,
     ToolCallDecision,
+    AgentObservation,
+    AgentStep,
 )
-from knowledge_assistant.agent.planner import (
+from knowledge_assistant.llm.planner import (
     AgentPlanner,
 )
 from knowledge_assistant.agent.registry import (
@@ -22,7 +24,7 @@ from knowledge_assistant.agent.tools.base import (
 from knowledge_assistant.agent.tools.specifications import (
     ToolSpecification,
 )
-from knowledge_assistant.agent.synthesizer import (
+from knowledge_assistant.llm.synthesizer import (
     AgentResponseSynthesizer,
 )
 
@@ -40,9 +42,9 @@ class StubSynthesizer(AgentResponseSynthesizer):
     def synthesize(
         self,
         query: str,
-        tool_call: AgentToolCall,
-        tool_result: AgentToolResult,
+        steps: tuple[AgentStep, ...],
     ) -> str:
+        assert steps
         return "There are 10 indexed documents."
 
 class StubTool(AgentTool):
@@ -60,7 +62,12 @@ class StubTool(AgentTool):
     ) -> AgentToolResult:
         return AgentToolResult(
             tool_name="get_index_stats",
-            content='{"document_count": 10}',
+            observation=AgentObservation(
+                content='{"document_count": 10}',
+                metadata={
+                    "document_count": 10,
+                },
+            ),
         )
 
 
@@ -109,6 +116,7 @@ def test_runtime_executes_selected_tool() -> None:
         planner=planner,
         tool_registry=registry,
         response_synthesizer=StubSynthesizer(),
+        max_iterations=1,
     )
 
     response = runtime.run(
@@ -176,55 +184,6 @@ class SequentialPlanner(AgentPlanner):
         self._index += 1
         return decision
 
-def test_runtime_executes_tool_then_finishes() -> None:
-    planner = SequentialPlanner(
-        decisions=[
-            ToolCallDecision(
-                decision_type="call_tool",
-                tool_call=AgentToolCall(
-                    tool_name="get_index_stats",
-                    arguments={},
-                ),
-            ),
-            FinalAnswerDecision(
-                decision_type="final_answer",
-                answer=(
-                    "There are 10 indexed documents."
-                ),
-            ),
-        ]
-    )
-
-    runtime = AgentRuntime(
-        planner=planner,
-        tool_registry=AgentToolRegistry(
-            tools=[StubTool()]
-        ),
-        response_synthesizer=StubSynthesizer(),
-        max_iterations=3,
-    )
-
-    response = runtime.run(
-        "How many documents are indexed?"
-    )
-
-    assert len(response.steps) == 1
-    assert response.answer == (
-        "There are 10 indexed documents."
-    )
-    assert response.stop_reason == "final_answer"
-    assert len(response.iterations) == 2
-    assert isinstance(
-        response.iterations[0].decision,
-        ToolCallDecision,
-    )
-
-    assert isinstance(
-        response.iterations[1].decision,
-        FinalAnswerDecision,
-    )
-
-
 def test_runtime_stops_at_max_iterations() -> None:
     planner = SequentialPlanner(
         decisions=[
@@ -266,4 +225,58 @@ def test_runtime_stops_at_max_iterations() -> None:
     assert isinstance(
         response.iterations[0].decision,
         ToolCallDecision,
+    )
+
+def test_runtime_executes_tool_then_finishes() -> None:
+    planner = SequentialPlanner(
+        decisions=[
+            ToolCallDecision(
+                decision_type="call_tool",
+                tool_call=AgentToolCall(
+                    tool_name="get_index_stats",
+                    arguments={},
+                ),
+            ),
+            FinalAnswerDecision(
+                decision_type="final_answer",
+                answer="Planner answer must not be used.",
+            ),
+        ]
+    )
+
+    runtime = AgentRuntime(
+        planner=planner,
+        tool_registry=AgentToolRegistry(
+            tools=[StubTool()]
+        ),
+        response_synthesizer=StubSynthesizer(),
+        max_iterations=3,
+    )
+
+    response = runtime.run(
+        "How many documents are indexed?"
+    )
+
+    assert len(response.steps) == 1
+
+    # Final answer must come from the synthesizer,
+    # not from the planner.
+    assert response.answer == (
+        "There are 10 indexed documents."
+    )
+    assert response.answer != (
+        "Planner answer must not be used."
+    )
+
+    assert response.stop_reason == "final_answer"
+    assert len(response.iterations) == 2
+
+    assert isinstance(
+        response.iterations[0].decision,
+        ToolCallDecision,
+    )
+
+    assert isinstance(
+        response.iterations[1].decision,
+        FinalAnswerDecision,
     )

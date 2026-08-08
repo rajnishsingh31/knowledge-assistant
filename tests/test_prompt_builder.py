@@ -5,7 +5,7 @@ from knowledge_assistant.models import (
     RetrievedContext,
     SearchResult,
 )
-from knowledge_assistant.prompt_builder import PromptBuilder
+from knowledge_assistant.llm.prompt_builder import PromptBuilder
 
 
 def create_result(

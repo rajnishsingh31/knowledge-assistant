@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 
@@ -36,13 +36,31 @@ class FinalAnswerDecision:
 
 PlannerDecision = ToolCallDecision | FinalAnswerDecision
 
+@dataclass(frozen=True)
+class AgentCitation:
+    """One source reference returned by an agent tool."""
+
+    source_name: str
+    start_line: int | None = None
+    end_line: int | None = None
+
+
+@dataclass(frozen=True)
+class AgentObservation:
+    """Structured information produced by a tool."""
+
+    content: str
+    citations: tuple[AgentCitation, ...] = ()
+    metadata: dict[str, Any] = field(default_factory=dict)
+    is_error: bool = False
+
 
 @dataclass(frozen=True)
 class AgentToolResult:
     """Result returned by an agent tool."""
 
     tool_name: AgentToolName
-    content: str
+    observation: AgentObservation
 
 
 @dataclass(frozen=True)

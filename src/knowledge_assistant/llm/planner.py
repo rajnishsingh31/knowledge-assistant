@@ -5,7 +5,7 @@ from knowledge_assistant.agent.models import (
     AgentContext,
     PlannerDecision,
 )
-from knowledge_assistant.agent.prompts import (
+from knowledge_assistant.llm.planner_prompts import (
     build_planner_prompt,
 )
 from knowledge_assistant.agent.tools.specifications import (

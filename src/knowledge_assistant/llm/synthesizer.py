@@ -3,11 +3,16 @@ from abc import ABC, abstractmethod
 from knowledge_assistant.agent.models import (
     AgentToolCall,
     AgentToolResult,
+    AgentStep,
 )
-from knowledge_assistant.agent.synthesis_prompts import (
+from knowledge_assistant.llm.synthesis_prompts import (
     build_synthesis_prompt,
 )
 from knowledge_assistant.llm import LLMProvider
+from knowledge_assistant.agent.citations import (
+    append_citations_if_missing,
+    deduplicate_citations,
+)
 
 
 class AgentResponseSynthesizer(ABC):
@@ -27,10 +32,9 @@ class AgentResponseSynthesizer(ABC):
     def synthesize(
         self,
         query: str,
-        tool_call: AgentToolCall,
-        tool_result: AgentToolResult,
+        steps: tuple[AgentStep, ...],
     ) -> str:
-        """Produce the final user-facing answer."""
+         """Produce a final answer from accumulated observations."""
 
 
 class LLMAgentResponseSynthesizer(
@@ -55,14 +59,27 @@ class LLMAgentResponseSynthesizer(
     def synthesize(
         self,
         query: str,
-        tool_call: AgentToolCall,
-        tool_result: AgentToolResult,
+        steps: tuple[AgentStep, ...],
     ) -> str:
+        if not steps:
+            raise ValueError(
+                "At least one agent step is required for synthesis"
+            )
+
+        citations = deduplicate_citations(
+            tuple(
+                citation
+                for step in steps
+                for citation
+                in step.tool_result.observation.citations
+            )
+        )
+
         prompt = build_synthesis_prompt(
             query=query,
-            tool_call=tool_call,
-            tool_result=tool_result,
+            steps=steps,
         )
+      
 
         content = self._llm_provider.generate(prompt)
         normalized_content = content.strip()
@@ -72,4 +89,7 @@ class LLMAgentResponseSynthesizer(
                 "Agent synthesizer returned an empty response"
             )
 
-        return normalized_content
+        return append_citations_if_missing(
+            content=normalized_content,
+            citations=citations,
+        )

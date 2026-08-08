@@ -65,3 +65,56 @@ def enforce_grounded_tool_policy(
             },
         ),
     )
+
+def has_answer_evidence(
+    context: AgentContext,
+) -> bool:
+    return any(
+        step.tool_call.tool_name
+        == "answer_from_documents"
+        for step in context.steps
+    )
+
+def enforce_answer_evidence_policy(
+    context: AgentContext,
+    decision: PlannerDecision,
+) -> PlannerDecision:
+    """
+    Require focused answer evidence only when the agent
+    currently has broad search results and attempts to finish.
+    """
+
+    if not isinstance(
+        decision,
+        FinalAnswerDecision,
+    ):
+        return decision
+
+    if not context.steps:
+        return decision
+
+    tool_names = {
+        step.tool_call.tool_name
+        for step in context.steps
+    }
+
+    # Focused evidence already exists.
+    if "answer_from_documents" in tool_names:
+        return decision
+
+    # Stats, inspection, or other non-search tools may already
+    # provide sufficient structured evidence.
+    if tool_names != {"search_documents"}:
+        return decision
+
+    # The only evidence collected so far is broad search output.
+    # Require focused/reranked evidence before finishing.
+    return ToolCallDecision(
+        decision_type="call_tool",
+        tool_call=AgentToolCall(
+            tool_name="answer_from_documents",
+            arguments={
+                "query": context.query,
+            },
+        ),
+    )

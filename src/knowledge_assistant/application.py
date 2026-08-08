@@ -19,6 +19,8 @@ from knowledge_assistant.models import (
     StartupTimings,
     Embedding,
     Chunk,
+    RetrievedContext,
+    RetrievalTrace,
 )
 from knowledge_assistant.reranking import Reranker
 from knowledge_assistant.retrieval import (
@@ -472,6 +474,20 @@ class KnowledgeAssistantApplication:
             cases=cases,
             top_k=effective_top_k,
         )
+
+    def retrieve_answer_context(
+        self,
+        query: str,
+        limit: int | None = None,
+        retrieval_filter: RetrievalFilter | None = None,
+    ) -> RetrievedContext:
+        """Retrieve final evidence suitable for answer synthesis."""
+
+        return self._answer_service.retrieve_context(
+            query=query,
+            final_limit=limit,
+            retrieval_filter=retrieval_filter,
+        ).context
 
     @property
     def embedding_model_name(self) -> str:
