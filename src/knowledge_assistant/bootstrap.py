@@ -9,9 +9,9 @@ from knowledge_assistant.embeddings import (
 )
 from knowledge_assistant.llm import (
     LLMProvider,
-    OllamaProvider,
+    OllamaLLMProvider,
 )
-from knowledge_assistant.prompt_builder import PromptBuilder
+from knowledge_assistant.llm.prompt_builder import PromptBuilder
 from knowledge_assistant.retrieval import (
      BM25RetrievalStrategy, 
      HybridRetrievalStrategy,
@@ -69,7 +69,7 @@ from knowledge_assistant.retrieval import (
     VectorRetrievalStrategy,
 )
 
-from knowledge_assistant.agent.planner import (
+from knowledge_assistant.llm.planner import (
     AgentPlanner,
     LLMAgentPlanner,
 )
@@ -78,7 +78,7 @@ from knowledge_assistant.agent.runtime import (
     AgentRuntime,
 )
 
-from knowledge_assistant.agent.synthesizer import (
+from knowledge_assistant.llm.synthesizer import (
     AgentResponseSynthesizer,
     LLMAgentResponseSynthesizer,
 )
@@ -192,7 +192,7 @@ def create_llm_provider(
     """Create the configured LLM provider."""
 
     if settings.llm.provider == "ollama":
-        return OllamaProvider(
+        return OllamaLLMProvider(
             model_name=settings.llm.model_name,
             host=settings.llm.ollama_host,
             temperature=settings.llm.temperature,

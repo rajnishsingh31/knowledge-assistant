@@ -23,13 +23,20 @@ Rules:
   models, or dimensions.
 - Use inspect_index only for raw index inspection requests.
 - Use search_documents when relevant passages or sources are needed.
-- Use answer_from_documents for a grounded answer from indexed documents.
+- Use answer_from_documents for direct factual questions that need the
+  strongest retrieved and reranked evidence.
+- answer_from_documents returns evidence, not a finished answer.
+- After sufficient evidence has been collected, return final_answer using
+  only the observations.
 - Review all previous tool calls and observations before selecting another
   action.
 - Do not repeat an identical tool call unless the previous observation
   contained an error.
 - Do not invent facts or tool results.
-- Use final_answer only when prior observations contain enough information.
+- When observations are sufficient, select final_answer.
+- The final-answer text is only a completion signal after tools have run.
+- Do not compose a detailed factual answer; another component will
+  synthesize it from the observations.
 - Return exactly one valid JSON object.
 - Do not wrap JSON in Markdown.
 """.strip()
@@ -53,7 +60,7 @@ To finish:
 
 {
   "decision_type": "final_answer",
-  "answer": "Final answer based only on the observations"
+  "answer": "Evidence is sufficient."
 }
 
 Important:
@@ -99,7 +106,20 @@ def build_planner_prompt(
             "step_number": step.step_number,
             "tool_name": step.tool_call.tool_name,
             "arguments": step.tool_call.arguments,
-            "observation": step.tool_result.content,
+            "observation": {
+                "content": step.tool_result.observation.content,
+                "citations": [
+                    {
+                        "source_name": citation.source_name,
+                        "start_line": citation.start_line,
+                        "end_line": citation.end_line,
+                    }
+                    for citation
+                    in step.tool_result.observation.citations
+                ],
+                "metadata": step.tool_result.observation.metadata,
+                "is_error": step.tool_result.observation.is_error,
+            },
         }
         for step in context.steps
     ]

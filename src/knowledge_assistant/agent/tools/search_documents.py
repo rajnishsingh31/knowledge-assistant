@@ -1,7 +1,11 @@
 import json
 from typing import Any
 
-from knowledge_assistant.agent.models import AgentToolResult
+from knowledge_assistant.agent.models import (
+    AgentCitation,
+    AgentObservation,
+    AgentToolResult,
+)
 from knowledge_assistant.agent.tools.base import AgentTool
 from knowledge_assistant.agent.tools.specifications import (
     ToolParameter,
@@ -9,6 +13,10 @@ from knowledge_assistant.agent.tools.specifications import (
 )
 from knowledge_assistant.application import (
     KnowledgeAssistantApplication,
+)
+
+from knowledge_assistant.agent.citations import (
+    deduplicate_citations,
 )
 
 
@@ -81,7 +89,28 @@ class SearchDocumentsTool(AgentTool):
             )
         ]
 
+        citations = deduplicate_citations(
+            tuple(
+                AgentCitation(
+                    source_name=result.chunk.source_path.name,
+                    start_line=result.chunk.start_line,
+                    end_line=result.chunk.end_line,
+                )
+                for result in results
+            )
+        )
+
         return AgentToolResult(
             tool_name=self.specification.name,
-            content=json.dumps(payload, indent=2),
+            observation=AgentObservation(
+                content=json.dumps(
+                    payload,
+                    indent=2,
+                ),
+                citations=citations,
+                metadata={
+                    "result_count": len(results),
+                    "query": query,
+                },
+            ),
         )

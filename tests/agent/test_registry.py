@@ -1,6 +1,6 @@
 from typing import Any
 
-from knowledge_assistant.agent.models import AgentToolResult
+from knowledge_assistant.agent.models import AgentToolResult, AgentObservation
 from knowledge_assistant.agent.registry import AgentToolRegistry
 from knowledge_assistant.agent.tools.base import AgentTool
 from knowledge_assistant.agent.tools.specifications import (
@@ -23,7 +23,11 @@ class StubTool(AgentTool):
     ) -> AgentToolResult:
         return AgentToolResult(
             tool_name=self.specification.name,
-            content="done",
+            observation=AgentObservation(
+                content='done',
+                metadata={
+                },
+            ),
         )
 
 
@@ -49,4 +53,4 @@ def test_registry_executes_registered_tool() -> None:
         arguments={},
     )
 
-    assert result.content == "done"
+    assert result.observation.content == "done"

@@ -1,4 +1,5 @@
-from knowledge_assistant.models import RetrievedContext, Prompt
+from knowledge_assistant.models import RetrievedContext
+from knowledge_assistant.llm.models import Prompt
 
 
 

@@ -1,36 +1,12 @@
-from abc import ABC, abstractmethod
-
 from ollama import Client
-
-from knowledge_assistant.models import Prompt
-
+from abc import ABC, abstractmethod
+from knowledge_assistant.llm import LLMProvider
+from knowledge_assistant.llm.models import Prompt
 
 DEFAULT_OLLAMA_HOST = "http://localhost:11434"
 DEFAULT_OLLAMA_MODEL = "qwen3:1.7b"
 
-
-class LLMProvider(ABC):
-    """Provider-neutral contract for text generation."""
-
-    @property
-    @abstractmethod
-    def provider_name(self) -> str:
-        """Return the provider identifier."""
-
-    @property
-    @abstractmethod
-    def model_name(self) -> str:
-        """Return the configured model identifier."""
-
-    @abstractmethod
-    def generate(
-        self,
-        prompt: Prompt,
-    ) -> str:
-        """Generate text from system and user prompts."""
-
-
-class OllamaProvider(LLMProvider):
+class OllamaLLMProvider(LLMProvider):
     """Generate answers using a locally running Ollama server."""
 
     def __init__(

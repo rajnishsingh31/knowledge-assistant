@@ -1,7 +1,7 @@
 from knowledge_assistant.agent.models import (
     ToolCallDecision,
 )
-from knowledge_assistant.agent.planner import (
+from knowledge_assistant.llm.planner import (
     LLMAgentPlanner,
 )
 from knowledge_assistant.agent.tools.specifications import (

@@ -8,7 +8,7 @@ from knowledge_assistant.models import (
     SearchResult,
 )
 from knowledge_assistant.reranking import IdentityReranker
-
+from knowledge_assistant.llm import LLMProvider
 
 class StubRetriever:
     def search(
@@ -98,3 +98,37 @@ def test_generate_trace_includes_non_negative_timings() -> None:
     assert trace.timings.generation_ms >= 0
     assert trace.timings.total_ms >= 0
     assert trace.generated_answer.content == "Generated answer"
+
+class FailingLLMProvider(LLMProvider):
+    @property
+    def provider_name(self) -> str:
+        return "failing"
+
+    @property
+    def model_name(self) -> str:
+        return "failing-model"
+
+    def generate(self, prompt: Prompt) -> str:
+        raise AssertionError(
+            "LLM generation must not occur during retrieve_context()"
+        )
+
+def test_retrieve_context_does_not_generate_answer() -> None:
+    service = AnswerService(
+        retriever=StubRetriever(),  # type: ignore[arg-type]
+        reranker=None, # type: ignore[arg-type]
+        prompt_builder=StubPromptBuilder(),  # type: ignore[arg-type]
+        llm_provider=FailingLLMProvider(),
+        retrieval_limit=3,
+        final_limit=5,
+    )
+
+    retrieval = service.retrieve_context(
+        query="What is BM25?",
+    )
+
+    assert retrieval.context.query == "What is BM25?"
+    assert retrieval.context.results
+    assert len(retrieval.context.results) == 1
+    assert retrieval.retrieval_ms >= 0
+    assert retrieval.reranking_ms == 0.0
