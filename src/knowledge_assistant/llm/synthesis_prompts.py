@@ -23,6 +23,18 @@ Rules:
 - Do not claim that one concept "supports", "enhances", "prevents", "reduces",
   or "improves" another unless that relationship is explicitly stated.
 
+Do NOT:
+- infer benefits
+- infer motivations
+- infer consequences
+- infer security properties
+- summarize beyond the evidence
+
+If the evidence does not explicitly state something, do not write it.
+Prefer quoting or closely paraphrasing the supplied evidence.
+Every sentence in your answer should be traceable to one or more retrieved passages.
+If you cannot point to a passage supporting a sentence, omit that sentence.
+
 
 Citation rules:
 - Cite factual claims using only supplied canonical citation labels.

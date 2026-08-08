@@ -83,6 +83,14 @@ from knowledge_assistant.llm.synthesizer import (
     LLMAgentResponseSynthesizer,
 )
 
+from knowledge_assistant.llm.grounding_validator import (
+    LLMGroundingValidator,
+)
+
+from knowledge_assistant.llm.nli_grounding_validator import (
+    NLIGroundingValidator,
+)
+
 def create_chunking_strategy(
     settings: Settings,
 ) -> ChunkingStrategy:
@@ -327,6 +335,13 @@ def create_agent_runtime(
         )
     )
 
+    grounding_validator = NLIGroundingValidator(
+        model_name=(
+            "cross-encoder/nli-deberta-v3-small"
+        ),
+        entailment_threshold=0.70,
+    )
+
 
     tool_registry = create_agent_tool_registry(
         application
@@ -336,6 +351,7 @@ def create_agent_runtime(
         planner=planner,
         tool_registry=tool_registry,
         response_synthesizer=response_synthesizer,
+        grounding_validator=grounding_validator,
         max_iterations=3,
     )
 

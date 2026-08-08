@@ -12,6 +12,17 @@ The project now includes a lightweight agent runtime built on top of the existin
 
 The current implementation focuses on deterministic, traceable execution rather than autonomous behavior. Every tool invocation is validated, executed through a registry, and recorded as part of the execution trace.
 
+## Highlights
+
+Unlike a basic RAG chatbot, this assistant implements:
+
+- Planner / Executor architecture
+- Tool calling
+- Hybrid retrieval
+- Cross-encoder reranking
+- Independent answer synthesis
+- NLI-based grounding validation
+- Complete execution tracing and observability
 
 ---
 
@@ -155,7 +166,18 @@ Supported by:
 * Modular agent architecture
 * Configurable iteration limit
 
+### Grounded Agent Execution
 
+The agent follows a multi-stage execution pipeline designed to produce
+traceable, evidence-backed answers.
+
+1. Planner decides whether to invoke a tool or finish.
+2. Tools retrieve grounded evidence.
+3. The Synthesizer generates a natural-language answer using only the retrieved evidence.
+4. An independent NLI-based Grounding Validator verifies that every factual claim is explicitly supported by the evidence.
+5. Unsupported claims are reported in the execution trace.
+
+This separation keeps planning, generation, and validation independent.
 
 ---
 
@@ -187,7 +209,10 @@ Supported by:
                                                      │
                                                      ▼
                                                 Final Answer
-```
+                                                     │
+                                                     ▼
+                                            Grounding Validator
+```      
 
 ### Dependency construction
 
@@ -1147,7 +1172,6 @@ uv run knowledge-assistant evaluate \
 * Incremental document ingestion
 * Metadata filtering
 * Structure-Aware chunking
-* --- Completed API Milsestones -------
 * Shared CLI and REST application layer
 * FastAPI lifecycle-based dependency initialization
 * Health and index-statistics endpoints
@@ -1157,6 +1181,10 @@ uv run knowledge-assistant evaluate \
 * Full-index rebuild endpoint
 * OpenAPI and Swagger documentation
 * Agentic workflows
+* Evidence-backed answer synthesis
+* Independent NLI-based grounding validation
+* Full execution trace
+* Canonical source citations
 
 
 ### Later

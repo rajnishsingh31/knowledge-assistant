@@ -10,6 +10,7 @@ from knowledge_assistant.agent.models import (
     FinalAnswerDecision,
     ToolCallDecision,
     AgentIteration,
+    GroundingValidationTrace,
 )
 from knowledge_assistant.llm.planner import AgentPlanner
 from knowledge_assistant.agent.policy import (
@@ -25,6 +26,9 @@ from knowledge_assistant.llm.synthesizer import (
 from knowledge_assistant.agent.evidence import (
     select_synthesis_steps,
 )
+from knowledge_assistant.llm.grounding_validator import (
+    GroundingValidator,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +42,7 @@ class AgentRuntime:
         planner: AgentPlanner,
         tool_registry: AgentToolRegistry,
         response_synthesizer: AgentResponseSynthesizer,
+        grounding_validator: GroundingValidator,
         max_iterations: int = 3,
     ) -> None:
         if max_iterations <= 0:
@@ -48,6 +53,7 @@ class AgentRuntime:
         self._planner = planner
         self._tool_registry = tool_registry
         self._response_synthesizer = response_synthesizer
+        self._grounding_validator = grounding_validator
         self._max_iterations = max_iterations
 
     def run(
@@ -234,6 +240,40 @@ class AgentRuntime:
             steps=synthesis_steps,
         )
 
+        grounding_result = (
+            self._grounding_validator.validate(
+                answer=final_answer,
+                steps=synthesis_steps,
+            )
+        )
+
+        if grounding_result.is_grounded:
+            logger.debug(
+                "grounding_validation_passed"
+            )
+        else:
+            logger.warning(
+                "grounding_validation_failed "
+                "unsupported_claims=%d",
+                len(
+                    grounding_result.unsupported_claims
+                ),
+            )
+
+            for claim in (
+                grounding_result.unsupported_claims
+            ):
+                logger.warning(
+                    "unsupported_claim sentence=%r reason=%r",
+                    claim.sentence,
+                    claim.reason,
+                )
+
+        grounding_trace = GroundingValidationTrace(
+            is_grounded=grounding_result.is_grounded,
+            claims=grounding_result.claims,
+        )
+
         return AgentResponse(
             query=context.query,
             answer=final_answer,
@@ -246,4 +286,5 @@ class AgentRuntime:
                 self._response_synthesizer.model_name
             ),
             stop_reason=stop_reason,
+            grounding_validation=grounding_trace,
         )
