@@ -134,6 +134,53 @@ class AgentConsoleFormatter:
                     ]
                 )
 
-            
-            
+            grounding = response.grounding_validation
+
+            if grounding is not None:
+                supported_count = len(
+                    grounding.supported_claims
+                )
+                unsupported_count = len(
+                    grounding.unsupported_claims
+                )
+
+                lines.extend(
+                    [
+                        "",
+                        "GROUNDING VALIDATION",
+                        "-" * 60,
+                        "Component: Grounding Validator",
+                        (
+                            "Status: "
+                            + (
+                                "PASSED"
+                                if grounding.is_grounded
+                                else "FAILED"
+                            )
+                        ),
+                        f"Checked claims: {len(grounding.claims)}",
+                        f"Supported: {supported_count}",
+                        f"Unsupported: {unsupported_count}",
+                    ]
+                )
+
+                if grounding.unsupported_claims:
+                    lines.append("")
+                    lines.append("Unsupported claims:")
+
+                    for claim in grounding.unsupported_claims:
+                        lines.extend(
+                            [
+                                f'- "{claim.sentence}"',
+                                f"  Reason: {claim.reason}",
+                            ]
+                        )
+                else:
+                    lines.append(
+                        "All factual claims are supported "
+                        "by the selected evidence."
+                    )
+
+                        
+                        
         return "\n".join(lines).rstrip()

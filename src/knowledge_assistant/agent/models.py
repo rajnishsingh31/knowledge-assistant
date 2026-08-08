@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Any, Literal
+from knowledge_assistant.llm.models import GroundingClaimResult
 
 
 AgentToolName = Literal[
@@ -33,6 +34,30 @@ class FinalAnswerDecision:
     decision_type: Literal["final_answer"]
     answer: str
 
+@dataclass(frozen=True)
+class GroundingValidationTrace:
+    is_grounded: bool
+    claims: tuple[GroundingClaimResult, ...]
+
+    @property
+    def unsupported_claims(
+        self,
+    ) -> tuple[GroundingClaimResult, ...]:
+        return tuple(
+            claim
+            for claim in self.claims
+            if not claim.supported
+        )
+
+    @property
+    def supported_claims(
+        self,
+    ) -> tuple[GroundingClaimResult, ...]:
+        return tuple(
+            claim
+            for claim in self.claims
+            if claim.supported
+        )
 
 PlannerDecision = ToolCallDecision | FinalAnswerDecision
 
@@ -92,6 +117,9 @@ class AgentIteration:
     decision: PlannerDecision
     tool_result: AgentToolResult | None = None
 
+
+
+
 @dataclass(frozen=True)
 class AgentResponse:
     """Final response returned by the agent runtime."""
@@ -103,4 +131,9 @@ class AgentResponse:
     provider_name: str
     model_name: str
     stop_reason: str
+    grounding_validation: (
+        GroundingValidationTrace | None
+    ) = None
+
+
 
