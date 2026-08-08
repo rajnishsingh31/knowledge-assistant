@@ -252,6 +252,7 @@ bootstrap.py
 | CLI                     | argparse               |
 | Columnar data           | Apache Arrow           |
 | Default reranker model  | `cross-encoder/ms-marco-MiniLM-L6-v2` |
+| Default Grounding Validator Model | `cross-encoder/nli-deberta-v3-small` |
 
 ---
 
