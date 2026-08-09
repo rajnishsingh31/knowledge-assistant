@@ -34,6 +34,11 @@ from knowledge_assistant.bootstrap import (
     create_application,
 )
 from knowledge_assistant.cli.chat import run_chat
+from knowledge_assistant.agent.evaluation import (
+    AgentEvaluationFormatter,
+    AgentEvaluator,
+    DEFAULT_AGENT_EVALUATION_CASES,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -466,6 +471,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Start an interactive conversation with the agent",
     )
 
+    agent_evaluate_parser = subparsers.add_parser(
+        "evaluate-agent",
+        help="Evaluate end-to-end agent behavior",
+    )
+
+    agent_evaluate_parser.add_argument(
+        "--details",
+        action="store_true",
+        help="Show per-case evaluation details",
+    )
+
     return parser
 
 
@@ -601,6 +617,28 @@ def main(argv: Sequence[str] | None = None) -> None:
 
             run_chat(agent_runtime)
             return
+
+        elif arguments.command == "evaluate-agent":
+            agent_runtime = create_agent_runtime(
+                settings=settings,
+                application=application,
+            )
+
+            evaluator = AgentEvaluator(
+                runtime=agent_runtime,
+            )
+
+            summary = evaluator.evaluate_suite(
+                DEFAULT_AGENT_EVALUATION_CASES
+            )
+
+            print(
+                AgentEvaluationFormatter.format_summary(
+                    summary=summary,
+                    include_details=arguments.details,
+                )
+            )
+
 
         total_cli_ms = (perf_counter() - cli_started) * 1000
 

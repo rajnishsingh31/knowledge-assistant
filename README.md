@@ -195,6 +195,51 @@ Example:
 
 The current implementation keeps a bounded recent history in memory. Persistent cross-session memory, semantic memory, and more advanced follow-up query rewriting are intentionally deferred to later milestones.
 
+### Agent Evaluation
+
+## Agent Evaluation
+
+The project includes an end-to-end agent evaluation framework for measuring behavioral regressions across the complete agent pipeline.
+
+Evaluation cases can validate:
+
+* Expected tool-call sequence
+* Expected source documents
+* Agent stop reason
+* Grounding validation result
+* Iteration count
+* End-to-end latency
+
+Run the default evaluation suite with:
+
+```bash
+uv run knowledge-assistant evaluate-agent
+```
+
+Include per-case details with:
+
+```bash
+uv run knowledge-assistant evaluate-agent --details
+```
+
+Example summary:
+
+```text
+Agent Evaluation
+------------------------------------------------------------
+Cases: 3
+Passed: 1
+Failed: 2
+Overall accuracy: 33.3%
+Tool accuracy: 100.0%
+Document accuracy: 100.0%
+Stop reason accuracy: 100.0%
+Grounding accuracy: 33.3%
+```
+
+The evaluation framework intentionally reports grounding failures separately from tool-selection and retrieval accuracy, making it easier to identify which stage of the agent pipeline has regressed.
+
+
 ---
 
 ## Architecture
@@ -1221,12 +1266,7 @@ uv run knowledge-assistant evaluate \
 * Full execution trace
 * Canonical source citations
 * Bounded multi-turn conversation context and interactive CLI chat
-
-
-### Later
-
-* Multi-document reasoning
-* Web interface
+* Agent Evaluation
 
 
 ---
