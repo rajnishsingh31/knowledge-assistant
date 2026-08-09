@@ -33,6 +33,7 @@ from knowledge_assistant.bootstrap import (
     create_agent_runtime,
     create_application,
 )
+from knowledge_assistant.cli.chat import run_chat
 
 logger = logging.getLogger(__name__)
 
@@ -460,6 +461,10 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Display planner and tool execution details.",
     )
+    chat_parser = subparsers.add_parser(
+        "chat",
+        help="Start an interactive conversation with the agent",
+    )
 
     return parser
 
@@ -587,6 +592,15 @@ def main(argv: Sequence[str] | None = None) -> None:
                 query=arguments.query,
                 include_trace=arguments.trace,
             )
+
+        elif arguments.command == "chat":
+            agent_runtime = create_agent_runtime(
+                    settings=settings,
+                    application=application,
+                )
+
+            run_chat(agent_runtime)
+            return
 
         total_cli_ms = (perf_counter() - cli_started) * 1000
 
