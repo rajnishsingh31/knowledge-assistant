@@ -19,6 +19,11 @@ Choose exactly one action:
 2. Return a final answer when the accumulated observations are sufficient.
 
 Rules:
+- Use previous conversation only to resolve references, follow-up questions,
+  and omitted context in the current user request.
+- The current user request is always the task to execute.
+- Previous assistant responses are conversation context, not authoritative
+  document evidence. Use tools when factual grounding is required.
 - Use get_index_stats for index counts, table information, embedding
   models, or dimensions.
 - Use inspect_index only for raw index inspection requests.
@@ -69,6 +74,20 @@ Important:
 - Never include text outside the JSON object.
 """.strip()
 
+
+def _build_conversation_context(
+    context: AgentContext,
+) -> str:
+    if not context.conversation:
+        return "No previous conversation."
+
+    return "\n".join(
+        (
+            f"{message.role.value}: "
+            f"{message.content}"
+        )
+        for message in context.conversation
+    )
 
 def build_planner_prompt(
     context: AgentContext,
@@ -124,20 +143,31 @@ def build_planner_prompt(
         for step in context.steps
     ]
 
+    conversation_context = _build_conversation_context(
+        context
+    )
+
     user_prompt = "\n\n".join(
         [
             "Available tools:",
             json.dumps(tools_payload, indent=2),
-            "Original user request:",
+
+            "Previous conversation:",
+            conversation_context,
+
+            "Current user request:",
             context.query,
+
             "Previous tool steps:",
             (
                 json.dumps(previous_steps, indent=2)
                 if previous_steps
                 else "No tools have been called yet."
             ),
+
             "Output instructions:",
             RESPONSE_INSTRUCTIONS,
+
             "Choose the next action.",
         ]
     )
