@@ -21,6 +21,13 @@ Choose exactly one action:
 Rules:
 - Use previous conversation only to resolve references, follow-up questions,
   and omitted context in the current user request.
+- When the current request is a follow-up that depends on previous
+  conversation, resolve the missing subject before calling a tool.
+- Tool query arguments must be self-contained and must not contain
+  unresolved references such as "it", "that", "this", "another one",
+  or "give me an example".
+- Use previous conversation to rewrite follow-up requests into complete
+  standalone search or answer queries.
 - The current user request is always the task to execute.
 - Previous assistant responses are conversation context, not authoritative
   document evidence. Use tools when factual grounding is required.

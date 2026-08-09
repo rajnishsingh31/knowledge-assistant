@@ -179,6 +179,22 @@ traceable, evidence-backed answers.
 
 This separation keeps planning, generation, and validation independent.
 
+### Conversation Context
+
+The agent supports bounded multi-turn conversation context within an interactive session.
+
+Conversation history is passed to the planner so follow-up requests can resolve references from earlier turns, while tool observations remain the authoritative source for factual grounding.
+
+Example:
+
+> What is BM25?
+
+> How is it different from vector search?
+
+> Give me an example.
+
+The current implementation keeps a bounded recent history in memory. Persistent cross-session memory, semantic memory, and more advanced follow-up query rewriting are intentionally deferred to later milestones.
+
 ---
 
 ## Architecture
@@ -755,6 +771,24 @@ This command displays stored chunk content and citation metadata without running
 
 ---
 
+### Interactive Chat
+
+Start a conversational session with:
+
+```bash
+uv run knowledge-assistant chat
+```
+
+Exit using:
+
+exit
+
+or:
+
+quit
+
+---
+
 ### Evaluate Retrieval
 
 Evaluate all retrieval strategies:
@@ -1186,6 +1220,7 @@ uv run knowledge-assistant evaluate \
 * Independent NLI-based grounding validation
 * Full execution trace
 * Canonical source citations
+* Bounded multi-turn conversation context and interactive CLI chat
 
 
 ### Later
