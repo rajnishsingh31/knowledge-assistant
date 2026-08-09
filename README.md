@@ -1,252 +1,105 @@
 # Knowledge Assistant
 
-**A local-first, explainable RAG system built from first principles.**
+**A production-style, local-first knowledge retrieval and agent platform built from first principles.**
 
-Knowledge Assistant indexes local documents and supports semantic search, keyword search, hybrid retrieval, and grounded question answering using a locally hosted LLM.
+Knowledge Assistant ingests local documents, indexes them for lexical and semantic retrieval, generates grounded answers using a locally hosted LLM, and exposes the same application capabilities through **CLI, REST API, interactive chat, and MCP**.
 
-The project intentionally avoids high-level AI orchestration frameworks in its early stages. Its purpose is to demonstrate the engineering behind production RAG systems, including provider abstraction, dependency injection, typed configuration, retrieval strategies, citations, and pipeline explainability.
-
-### Agent Runtime
-
-The project now includes a lightweight agent runtime built on top of the existing RAG platform. Instead of invoking retrieval or answer generation directly, an LLM first plans which capability to use, executes the selected tool under runtime control, and then synthesizes a grounded response from the tool observation.
-
-The current implementation focuses on deterministic, traceable execution rather than autonomous behavior. Every tool invocation is validated, executed through a registry, and recorded as part of the execution trace.
-
-## Highlights
-
-Unlike a basic RAG chatbot, this assistant implements:
-
-- Planner / Executor architecture
-- Tool calling
-- Hybrid retrieval
-- Cross-encoder reranking
-- Independent answer synthesis
-- NLI-based grounding validation
-- Complete execution tracing and observability
+The project intentionally avoids high-level AI orchestration frameworks. Core RAG and agent components—including retrieval strategies, rank fusion, reranking, planning, tool execution, grounding validation, conversation context, evaluation, and tracing—are implemented explicitly to demonstrate how production AI systems work beneath framework abstractions.
 
 ---
 
-## Current Capabilities
+## Highlights
 
-### Supports
-* REST API 
-* CLI
+### Retrieval and RAG
 
-### Document ingestion
-
-* Supported file types: Markdown (`.md`), Plain text (`.txt`), PDF (`.pdf`), Microsoft Word (`.docx`), Microsoft Excel (`.xlsx`)
-* Ingest one file, a directory, or the configured default directory
-* Generate stable document and chunk identifiers
-* Preserve source file and line-number metadata
-* Create overlapping, line-based chunks
-
-### Structure-Aware Chunking
-
-* Configurable line-based and structure-aware chunking
-* Markdown heading boundaries
-* PDF page boundaries
-* Excel worksheet boundaries
-* Word table markers
-* Fixed-line fallback for oversized sections
-* Stable chunk hashing and source line tracking
-
-
-### Incremental Ingestion
-
-* Document-level change detection using content hashes
-* Chunk-level embedding reuse
-* New-document insertion
-* Modified-document synchronization
-* Deleted-document cleanup
-* Unchanged-document skipping
-* Stable document and chunk identifiers
-* Incremental ingestion statistics and timings
-
-
-### Embeddings and storage
-
-* Generate embeddings locally using Sentence Transformers
-* Use a provider-neutral `EmbeddingProvider` abstraction
-* Store chunks, vectors, and citation metadata in LanceDB
-* Create a LanceDB full-text-search index during ingestion
-* Inspect stored chunks and index statistics
-
-### Retrieval
-
-* Vector similarity search
-* BM25 full-text search
-* Hybrid retrieval
+* Multi-format document ingestion: Markdown, text, PDF, Word, and Excel
+* Incremental ingestion with document change detection and embedding reuse
+* Structure-aware and line-based chunking
+* Local Sentence Transformer embeddings
+* LanceDB vector and full-text indexes
+* Vector, BM25, and hybrid retrieval
 * Reciprocal Rank Fusion (RRF)
-* Configurable retrieval strategy
-* Per-command retrieval strategy override
-* Configurable candidate retrieval limits
+* Cross-encoder reranking
+* Metadata filtering
+* Source and line-level citations
+* Grounded local answer generation through Ollama
 
-### Metadata Filtering
+### Agent Runtime
 
-Restrict retrieval using document metadata.
+* Planner / Executor architecture
+* Typed tool specifications
+* Multi-step tool execution
+* Runtime policy enforcement and safeguards
+* Independent answer synthesis
+* NLI-based grounding validation
+* Bounded multi-turn conversation context
+* Interactive chat
+* Full execution traces
 
-Supported filters:
+### Quality and Evaluation
 
-* Source filename
-* Document extension
+* Offline retrieval evaluation
+* Vector / BM25 / Hybrid comparison
+* Top-1 and Top-k retrieval metrics
+* Agent tool-sequence validation
+* Expected-document validation
+* Grounding evaluation
+* Iteration and latency measurement
+* Structured observability and pipeline timings
+* Automated pytest suite
 
-Supported by:
+### Interfaces
 
-* search
-* ask
-* explain
-
-### Cross-Encoder Reranking
-
-* Local cross-encoder reranking
-* Identity reranker
-* Configurable reranking provider
-* Configurable reranking model
-* Candidate reranking before answer generation
-* Configurable candidate and final result limits
-* Optional reranking during evaluation
-
-### Answer generation
-
-* Generate answers locally through Ollama
-* Use a provider-neutral `LLMProvider` abstraction
-* Construct prompts from retrieved evidence
-* Require answers to remain grounded in supplied context
-* Display supporting source chunks and line numbers
-* Keep retrieval commands independent of the LLM
-
-### Explainability
-
-* Display retrieved chunks and ranking metadata
-* Display vector distance and BM25 score when available
-* Display the complete system and user prompts
-* Display the configured embedding model and LLM
-* Display the final generated answer
-
-### Retrieval evaluation
-
-* Offline retrieval evaluation framework
-* Top-1 and Top-k accuracy metrics
-* Compare Vector, BM25, and Hybrid retrieval
-* Configurable evaluation dataset
-* Per-query evaluation reports
-* No LLM required
-
-### Testing
-
-* Unit tests with pytest
-* Retrieval evaluation test suite
-* Prompt builder tests
-* Chunking tests
-* Hybrid retrieval tests
-* Reranker tests
-* Evaluation metric tests
-
-### Observability
-
-* Structured application logging
-* Configurable verbose logging
-* Startup timing metrics
-* Retrieval latency metrics
-* Reranking latency metrics
-* Prompt construction timing
-* LLM generation timing
-* End-to-end pipeline timing
-
-### Agentic AI
-
-* Tool-based and multi-step agent runtime
-* Agent context
-* LLM planner
-* Tool specifications
-* Runtime policy enforcement
-* Runtime safeguards
-* Observation synthesis
-* Execution tracing
-* Modular agent architecture
-* Configurable iteration limit
-
-### Grounded Agent Execution
-
-The agent follows a multi-stage execution pipeline designed to produce
-traceable, evidence-backed answers.
-
-1. Planner decides whether to invoke a tool or finish.
-2. Tools retrieve grounded evidence.
-3. The Synthesizer generates a natural-language answer using only the retrieved evidence.
-4. An independent NLI-based Grounding Validator verifies that every factual claim is explicitly supported by the evidence.
-5. Unsupported claims are reported in the execution trace.
-
-This separation keeps planning, generation, and validation independent.
-
-### Conversation Context
-
-The agent supports bounded multi-turn conversation context within an interactive session.
-
-Conversation history is passed to the planner so follow-up requests can resolve references from earlier turns, while tool observations remain the authoritative source for factual grounding.
-
-Example:
-
-> What is BM25?
-
-> How is it different from vector search?
-
-> Give me an example.
-
-The current implementation keeps a bounded recent history in memory. Persistent cross-session memory, semantic memory, and more advanced follow-up query rewriting are intentionally deferred to later milestones.
-
-### Agent Evaluation
-
-The project includes an end-to-end agent evaluation framework for measuring behavioral regressions across the complete agent pipeline.
-
-Evaluation cases can validate:
-
-* Expected tool-call sequence
-* Expected source documents
-* Agent stop reason
-* Grounding validation result
-* Iteration count
-* End-to-end latency
-
-The evaluation framework intentionally reports grounding failures separately from tool-selection and retrieval accuracy, making it easier to identify which stage of the agent pipeline has regressed.
-
+* Command-line interface
+* Interactive chat
+* FastAPI REST API
+* OpenAPI / Swagger
+* Model Context Protocol (MCP) server
 
 ---
 
 ## Architecture
 
 ```text
-                                User
-                                  │
-             ┌────────────────────┴────────────────────┐
-             │                                         │
-            CLI                                      FastAPI
-             │                                         │
-             └────────────────────┬────────────────────┘
-                                  │
-                                  ▼
-                       KnowledgeAssistantApplication
-                                  │
-                ┌─────────────────┴──────────────────┐
-                │                                    │
-         Traditional RAG                     Agent Runtime
-                │                                    │
-        Retrieval + LLM                  Planner → Policy → Tools → Evaluator
-                │                                    │
-                ▼                                    ▼
-         Grounded Answer                        Observation
-                                                     │
-                                                     ▼
-                                                Synthesizer
-                                                     │
-                                                     ▼
-                                                Final Answer
-                                                     │
-                                                     ▼
-                                            Grounding Validator
-```      
+                         Users / AI Clients
+                                │
+          ┌─────────────────────┼─────────────────────┐
+          │                     │                     │
+         CLI                REST API              MCP Server
+          │                     │                     │
+          └─────────────────────┼─────────────────────┘
+                                │
+                    KnowledgeAssistantApplication
+                                │
+             ┌──────────────────┴──────────────────┐
+             │                                     │
+             │                                     │
+      Retrieval / RAG                        Agent Runtime
+             │                                     │
+     ┌───────┼────────┐                    ┌───────┴────────┐
+     │       │        │                    │                │
+   Vector   BM25    Hybrid               Planner          Policy
+                      │                    │                │
+                      ▼                    └───────┬────────┘
+                     RRF                           │
+                      │                            ▼
+                      ▼                           Tools
+                 Reranker                          │
+                      │                            ▼
+                      │                        Evidence
+                      │                            │
+                      └──────────────┐             ▼
+                                     │        Synthesizer
+                                     │             │
+                                     │             ▼
+                                     │     Grounding Validator
+                                     │             │
+                                     └─────────────┴─────► Response
+```
 
-### Dependency construction
+### Composition Root
+
+Concrete infrastructure dependencies are constructed centrally in `bootstrap.py`.
 
 ```text
 Settings
@@ -254,41 +107,764 @@ Settings
    ▼
 bootstrap.py
    │
+   ├── DocumentService
+   ├── ChunkingStrategy
    ├── EmbeddingProvider
    ├── LanceDBVectorStore
    ├── RetrievalStrategy implementations
    ├── Retriever
+   ├── Reranker
    ├── LLMProvider
    ├── AnswerService
-   └── KnowledgeAssistantApplication
+   ├── Agent tools
+   ├── Agent planner
+   ├── Synthesizer
+   └── Grounding validator
 ```
 
-`bootstrap.py` is the composition root. Application services receive dependencies through their constructors rather than constructing infrastructure implementations internally.
+Application and runtime components receive dependencies through constructors rather than creating infrastructure implementations internally.
 
 ---
 
-## Technology Stack
+## Engineering Principles
 
-| Area                    | Technology             |
-| ----------------------- | ---------------------- |
-| Language                | Python 3.13            |
-| Package management      | uv                     |
-| Configuration           | Pydantic Settings      |
-| Local embeddings        | Sentence Transformers  |
-| Default embedding model | `all-MiniLM-L6-v2`     |
-| Vector database         | LanceDB                |
-| Keyword retrieval       | LanceDB BM25/FTS       |
-| Rank fusion             | Reciprocal Rank Fusion |
-| Local LLM runtime       | Ollama                 |
-| Default LLM             | `qwen3:1.7b`           |
-| CLI                     | argparse               |
-| Columnar data           | Apache Arrow           |
-| Default reranker model  | `cross-encoder/ms-marco-MiniLM-L6-v2` |
-| Default Grounding Validator Model | `cross-encoder/nli-deberta-v3-small` |
+The project is designed around several production-oriented principles:
+
+* **Local-first execution** — documents, embeddings, retrieval, reranking, and LLM inference remain local.
+* **Separation of concerns** — ingestion, retrieval, answering, agent orchestration, evaluation, transport, and infrastructure remain independently testable.
+* **Provider abstraction** — embedding and LLM implementations are hidden behind typed interfaces.
+* **Explicit orchestration** — agent planning and execution are implemented directly instead of delegated to an orchestration framework.
+* **Evidence-first generation** — retrieved observations remain authoritative for factual answers.
+* **Independent validation** — answer generation and grounding verification use separate components.
+* **Observability** — important retrieval, generation, execution, and latency signals are inspectable.
+* **Evaluation before optimization** — retrieval and agent behavior are measured through reproducible evaluation suites.
 
 ---
 
-## Project Structure
+## Why No LangChain or LangGraph?
+
+This project intentionally implements the core AI pipeline without high-level orchestration frameworks.
+
+The goal is to understand and demonstrate the underlying engineering:
+
+```text
+Retrieval
+→ Reranking
+→ Planning
+→ Tool Execution
+→ Evidence Selection
+→ Synthesis
+→ Grounding
+→ Evaluation
+```
+
+This makes framework abstractions easier to reason about and avoids hiding important execution behavior behind libraries.
+
+---
+
+# Core Capabilities
+
+## Document Ingestion
+
+Supported formats:
+
+* Markdown (`.md`)
+* Plain text (`.txt`)
+* PDF (`.pdf`)
+* Microsoft Word (`.docx`)
+* Microsoft Excel (`.xlsx`)
+
+The ingestion pipeline supports:
+
+* Single-file and directory ingestion
+* Stable document identifiers
+* Stable chunk identifiers
+* Content hashing
+* Source-path metadata
+* Line-range metadata
+* Incremental synchronization
+* Deleted-document cleanup
+* Unchanged-document skipping
+* Chunk-level embedding reuse
+* Ingestion timing metrics
+
+### Chunking
+
+Two strategies are available:
+
+**Line-based chunking**
+
+* Fixed maximum line count
+* Configurable overlap
+
+**Structure-aware chunking**
+
+* Markdown heading boundaries
+* PDF page boundaries
+* Excel worksheet boundaries
+* Word table markers
+* Fixed-line fallback for oversized sections
+
+---
+
+## Embeddings and Storage
+
+Embeddings are generated locally using Sentence Transformers.
+
+The current architecture uses:
+
+```text
+EmbeddingProvider
+       │
+       ▼
+SentenceTransformerEmbeddingProvider
+```
+
+Indexed content is persisted in LanceDB together with:
+
+* Chunk content
+* Vector embeddings
+* Document identifiers
+* Source paths
+* Line ranges
+* Content hashes
+* Embedding metadata
+
+A full-text-search index is also created for lexical retrieval.
+
+---
+
+## Retrieval
+
+Three retrieval strategies are supported.
+
+### Vector Retrieval
+
+Semantic retrieval using embedding similarity.
+
+Best suited to:
+
+* Semantic similarity
+* Paraphrased queries
+* Conceptual questions
+* Wording that differs from the source
+
+### BM25 Retrieval
+
+Lexical retrieval using LanceDB full-text search.
+
+Best suited to:
+
+* Exact identifiers
+* API names
+* Error codes
+* Model names
+* Rare technical terminology
+
+### Hybrid Retrieval
+
+Runs vector and BM25 retrieval independently and combines their ranked results using **Reciprocal Rank Fusion**.
+
+```text
+Vector ranking ─┐
+                ├── Reciprocal Rank Fusion ──► Final ranking
+BM25 ranking ───┘
+```
+
+RRF combines rank positions rather than directly comparing incompatible raw vector and BM25 score scales.
+
+---
+
+## Cross-Encoder Reranking
+
+Candidate results can be reranked before answer generation.
+
+The default implementation uses:
+
+```text
+cross-encoder/ms-marco-MiniLM-L6-v2
+```
+
+The reranking layer is abstracted behind a `Reranker` interface and includes:
+
+* Cross-encoder reranking
+* Identity/no-op reranking
+* Configurable candidate count
+* Configurable final result count
+* Optional reranking during retrieval evaluation
+
+---
+
+## Metadata Filtering
+
+Retrieval can be restricted using:
+
+* Source filename
+* File extension
+
+Filtering is supported by:
+
+* `search`
+* `ask`
+* `explain`
+* REST retrieval endpoints
+
+---
+
+## Grounded Answer Generation
+
+Grounded answers are generated locally through Ollama.
+
+The answering pipeline is:
+
+```text
+Query
+  │
+  ▼
+Retrieve Candidates
+  │
+  ▼
+Rerank Evidence
+  │
+  ▼
+Build Prompt
+  │
+  ▼
+Local LLM
+  │
+  ▼
+Answer + Sources
+```
+
+Generated answers retain their supporting `SearchResult` objects so source documents and line ranges remain traceable.
+
+---
+
+# Agent Runtime
+
+Knowledge Assistant also includes a lightweight multi-step agent runtime built directly on top of the RAG platform.
+
+```text
+User Request
+     │
+     ▼
+Planner
+     │
+     ▼
+Policy Enforcement
+     │
+     ▼
+Tool Selection
+     │
+     ▼
+Tool Execution
+     │
+     ▼
+Observation
+     │
+     ▼
+Planner
+     │
+     ▼
+Final Completion Decision
+     │
+     ▼
+Synthesizer
+     │
+     ▼
+Grounding Validator
+     │
+     ▼
+Final Response
+```
+
+The planner does not directly own final factual answer generation once evidence has been collected. The synthesizer produces the response from selected observations.
+
+### Agent Tools
+
+The runtime currently includes tools for:
+
+* Searching documents
+* Retrieving focused answer evidence
+* Inspecting index statistics
+* Inspecting raw indexed data
+
+### Runtime Policies
+
+Runtime policies can override planner behavior when necessary to ensure evidence is collected before a factual response is finalized.
+
+Additional safeguards include:
+
+* Maximum iteration limits
+* Repeated tool-call detection
+* Tool registration validation
+* Typed tool arguments
+* Execution tracing
+
+---
+
+## Grounding Validation
+
+Final synthesized answers are independently checked using an NLI model:
+
+```text
+cross-encoder/nli-deberta-v3-small
+```
+
+The validator:
+
+1. Splits the generated response into factual candidate claims.
+2. Normalizes formatting and citations.
+3. Compares each claim against retrieved evidence.
+4. Computes entailment scores.
+5. Marks unsupported claims in the execution trace.
+
+Example trace:
+
+```text
+GROUNDING VALIDATION
+------------------------------------------------------------
+Status: FAILED
+Checked claims: 5
+Supported: 3
+Unsupported: 2
+
+Unsupported claims:
+- "This approach reduces unauthorized access."
+  Reason: No supplied evidence explicitly entails this claim.
+```
+
+Grounding validation is intentionally independent from answer generation.
+
+---
+
+## Conversation Context
+
+Interactive agent sessions retain a bounded recent conversation history.
+
+```text
+> What is BM25?
+
+> How is it different from vector search?
+
+> Give me an example.
+```
+
+Previous conversation turns are supplied to the planner for reference resolution, while tool observations remain authoritative for grounded factual answers.
+
+Current scope:
+
+* Session-local memory
+* Bounded recent messages
+* Planner context
+
+Not currently implemented:
+
+* Persistent cross-session memory
+* Semantic long-term memory
+* Episodic memory
+* Advanced standalone-query rewriting
+
+---
+
+# Evaluation
+
+## Retrieval Evaluation
+
+The retrieval evaluation framework measures deterministic retrieval quality without requiring an LLM.
+
+Metrics include:
+
+* Top-1 accuracy
+* Top-k accuracy
+* Expected document retrieval
+
+Supported comparisons:
+
+* Vector
+* BM25
+* Hybrid
+* Hybrid + reranker
+
+Run all strategies:
+
+```bash
+uv run knowledge-assistant evaluate
+```
+
+Evaluate hybrid retrieval with reranking:
+
+```bash
+uv run knowledge-assistant evaluate \
+    --strategy hybrid \
+    --rerank \
+    --details
+```
+
+---
+
+## Agent Evaluation
+
+The end-to-end agent evaluation framework measures behavioral regressions across the complete agent pipeline.
+
+Evaluation cases can validate:
+
+* Expected tool sequence
+* Expected supporting documents
+* Stop reason
+* Grounding result
+* Iteration count
+* End-to-end latency
+
+Run the default suite:
+
+```bash
+uv run knowledge-assistant evaluate-agent
+```
+
+Include case-level details:
+
+```bash
+uv run knowledge-assistant evaluate-agent --details
+```
+
+Tool, document, stop-reason, and grounding accuracy are reported separately so failures can be localized to a specific stage of execution.
+
+---
+
+# Interfaces
+
+## Command-Line Interface
+
+Display help:
+
+```bash
+uv run knowledge-assistant --help
+```
+
+Primary commands:
+
+```text
+ingest
+rebuild
+search
+ask
+explain
+stats
+inspect
+evaluate
+agent
+chat
+evaluate-agent
+```
+
+### Ingest
+
+```bash
+uv run knowledge-assistant ingest
+```
+
+Single file:
+
+```bash
+uv run knowledge-assistant ingest documents/python-basics.md
+```
+
+Different directory:
+
+```bash
+uv run knowledge-assistant ingest ./my-notes
+```
+
+### Rebuild
+
+```bash
+uv run knowledge-assistant rebuild
+```
+
+### Search
+
+```bash
+uv run knowledge-assistant search "What is BM25?"
+```
+
+Choose retrieval strategy:
+
+```bash
+uv run knowledge-assistant search \
+    "CreateSubmissionAsync" \
+    --strategy bm25
+```
+
+Filter by source:
+
+```bash
+uv run knowledge-assistant search \
+    "What is least privilege?" \
+    --file cloud-security.docx
+```
+
+### Ask
+
+```bash
+uv run knowledge-assistant ask \
+    "What is BM25 and when is it useful?"
+```
+
+Filter by file type:
+
+```bash
+uv run knowledge-assistant ask \
+    "What happens during containment?" \
+    --type pdf
+```
+
+### Explain
+
+Inspect the complete RAG pipeline:
+
+```bash
+uv run knowledge-assistant explain \
+    "What is BM25?"
+```
+
+The output includes:
+
+* Retrieved chunks
+* Ranking metadata
+* Vector distances
+* BM25 scores
+* Hybrid scores
+* Reranking
+* Prompt construction
+* Configured models
+* Final answer
+* Startup timings
+* Pipeline timings
+
+### Agent
+
+```bash
+uv run knowledge-assistant agent \
+    "Find evidence about least privilege and explain it."
+```
+
+Show execution trace:
+
+```bash
+uv run knowledge-assistant agent \
+    "Find evidence about least privilege and explain it." \
+    --trace
+```
+
+### Interactive Chat
+
+```bash
+uv run knowledge-assistant chat
+```
+
+Exit using:
+
+```text
+exit
+```
+
+or:
+
+```text
+quit
+```
+
+### Index Statistics
+
+```bash
+uv run knowledge-assistant stats
+```
+
+### Inspect Index
+
+```bash
+uv run knowledge-assistant inspect --limit 5
+```
+
+---
+
+# REST API
+
+The FastAPI interface shares the same application layer as the CLI.
+
+Features include:
+
+* Pydantic request/response validation
+* Lifecycle-based dependency initialization
+* OpenAPI schema generation
+* Swagger UI
+* Retrieval filters
+* Incremental ingestion
+* Local grounded answer generation
+
+## Endpoints
+
+| Method | Endpoint   | Purpose                        |
+| ------ | ---------- | ------------------------------ |
+| `GET`  | `/health`  | Service health                 |
+| `GET`  | `/stats`   | Index statistics               |
+| `POST` | `/search`  | Search document chunks         |
+| `POST` | `/ask`     | Generate a grounded answer     |
+| `POST` | `/ingest`  | Incrementally ingest documents |
+| `POST` | `/rebuild` | Rebuild the index              |
+
+Start the API:
+
+```bash
+uv run knowledge-assistant-api
+```
+
+Swagger:
+
+```text
+http://127.0.0.1:8000/docs
+```
+
+OpenAPI:
+
+```text
+http://127.0.0.1:8000/openapi.json
+```
+
+Example search:
+
+```bash
+curl -X POST \
+    http://127.0.0.1:8000/search \
+    -H "Content-Type: application/json" \
+    -d '{
+      "query": "What is least privilege?",
+      "limit": 3,
+      "strategy": "hybrid",
+      "filters": {
+        "source_names": ["cloud-security.docx"]
+      }
+    }'
+```
+
+---
+
+# MCP Server
+
+Knowledge Assistant exposes selected application capabilities through the **Model Context Protocol (MCP)**.
+
+The MCP layer is intentionally thin:
+
+```text
+MCP Client
+    │
+    ▼
+Knowledge Assistant MCP Server
+    │
+    ▼
+KnowledgeAssistantApplication
+    │
+    ├── Search
+    ├── Answer
+    ├── Statistics
+    └── Index Inspection
+```
+
+No retrieval or business logic is duplicated inside the MCP adapter.
+
+## MCP Tools
+
+| Tool               | Purpose                                                 |
+| ------------------ | ------------------------------------------------------- |
+| `search_documents` | Retrieve relevant indexed passages                      |
+| `answer_question`  | Generate a grounded answer using indexed documents      |
+| `get_index_stats`  | Return document, chunk, embedding, and index statistics |
+| `inspect_index`    | Inspect raw records stored in the index                 |
+
+Start the MCP server using stdio transport:
+
+```bash
+uv run knowledge-assistant-mcp
+```
+
+For development with MCP Inspector:
+
+```bash
+uv run mcp dev src/knowledge_assistant/mcp/server.py
+```
+
+The Inspector requires Node.js / npm / `npx`.
+
+The MCP implementation uses the same application facade as the CLI and REST API, demonstrating transport-independent application logic.
+
+---
+
+# Observability
+
+The project records timing and execution information across key stages.
+
+### Application startup
+
+* Settings loading
+* Dependency construction
+* Total startup time
+
+### RAG pipeline
+
+* Retrieval latency
+* Reranking latency
+* Prompt construction latency
+* LLM generation latency
+* Total pipeline latency
+
+### Agent runtime
+
+* Iteration number
+* Planner decisions
+* Tool selection
+* Tool arguments
+* Tool observations
+* Completion reason
+* Synthesizer identity
+* Grounding validation result
+
+Enable diagnostic logs:
+
+```bash
+uv run knowledge-assistant --verbose ask "What is BM25?"
+```
+
+Verbose traces can expose prompts and source content and should therefore be treated as diagnostic output rather than production-safe telemetry.
+
+---
+
+# Technology Stack
+
+| Area                             | Technology                               |
+| -------------------------------- | ---------------------------------------- |
+| Language                         | Python 3.13                              |
+| Package / environment management | uv                                       |
+| Configuration                    | Pydantic Settings                        |
+| Embeddings                       | Sentence Transformers                    |
+| Default embedding model          | `sentence-transformers/all-MiniLM-L6-v2` |
+| Vector database                  | LanceDB                                  |
+| Lexical retrieval                | LanceDB FTS / BM25                       |
+| Hybrid fusion                    | Reciprocal Rank Fusion                   |
+| Reranker                         | Cross Encoder                            |
+| Default reranker                 | `cross-encoder/ms-marco-MiniLM-L6-v2`    |
+| Local LLM runtime                | Ollama                                   |
+| Default LLM                      | `qwen3:1.7b`                             |
+| Grounding validation             | NLI Cross Encoder                        |
+| Default grounding model          | `cross-encoder/nli-deberta-v3-small`     |
+| REST API                         | FastAPI                                  |
+| MCP                              | MCP Python SDK                           |
+| CLI                              | argparse                                 |
+| Testing                          | pytest                                   |
+
+---
+
+# Project Structure
 
 ```text
 knowledge-assistant/
@@ -297,72 +873,99 @@ knowledge-assistant/
 │   └── retrieval.json
 ├── tools/
 │   └── generate_sample_documents.py
+│
 ├── src/
 │   └── knowledge_assistant/
-│    │   ├── agent/
-│    │   ├── planner.py
-│    │   ├── runtime.py
-│    │   ├── synthesizer.py
-│    │   ├── policy.py
-│    │   ├── prompts.py
-│    │   ├── synthesis_prompts.py
-│    │   ├── registry.py
-│    │   ├── validation.py
-│    │   ├── models.py
-│    │   └── tools/
-│    │       ├── base.py
-│    │       ├── specifications.py
-│    │       ├── search_documents.py
-│    │       ├── answer_documents.py
-│    │       ├── inspect_index.py
-│    │       └── index_stats.py
-│    ├── api/
-│       │   ├── __init__.py
+│       ├── agent/
+│       │   ├── evaluation/
+│       │   ├── tools/
+│       │   ├── citations.py
+│       │   ├── evidence.py
+│       │   ├── formatting.py
+│       │   ├── guards.py
+│       │   ├── models.py
+│       │   ├── policy.py
+│       │   ├── registry.py
+│       │   └── runtime.py
+│       │
+│       ├── api/
 │       │   ├── app.py
 │       │   ├── dependencies.py
 │       │   ├── mappers.py
 │       │   ├── schemas.py
 │       │   └── server.py
+│       │
+│       ├── cli/
+│       │   └── chat.py
+│       │
+│       ├── conversation/
+│       │   ├── memory.py
+│       │   └── models.py
+│       │
 │       ├── document_loaders/
+│       │
+│       ├── llm/
+│       │   ├── grounding_validator.py
+│       │   ├── models.py
+│       │   ├── nli_grounding_validator.py
+│       │   ├── planner.py
+│       │   ├── planner_prompts.py
+│       │   ├── prompt_builder.py
+│       │   ├── providers.py
+│       │   ├── synthesizer.py
+│       │   └── synthesis_prompts.py
+│       │
+│       ├── mcp/
+│       │   ├── main.py
+│       │   ├── serializers.py
+│       │   └── server.py
+│       │
 │       ├── answering.py
 │       ├── application.py
 │       ├── bootstrap.py
 │       ├── chunking.py
 │       ├── config.py
+│       ├── document_loader.py
+│       ├── embeddings.py
 │       ├── evaluation.py
 │       ├── formatters.py
-│       ├── llm.py
 │       ├── main.py
 │       ├── models.py
-│       ├── prompt_builder.py
 │       ├── reranking.py
 │       ├── retrieval.py
 │       └── vector_store.py
+│
 ├── tests/
 ├── .env.example
+├── .gitignore
+├── .python-version
 ├── pyproject.toml
 ├── uv.lock
 └── README.md
 ```
 
-The generated LanceDB index is stored under `data/` and is not committed to Git.
+The LanceDB index is generated under `data/` and is not committed to source control.
 
 ---
 
-## Prerequisites
+# Prerequisites
 
-| Requirement      | Recommended version    |
-| ---------------- | ---------------------- |
-| Python           | 3.13                   |
-| uv               | Current stable version |
-| Ollama           | Current stable version |
-| Operating system | Linux or WSL           |
+| Requirement      | Version        |
+| ---------------- | -------------- |
+| Python           | 3.13           |
+| uv               | Current stable |
+| Ollama           | Current stable |
+| Operating system | Linux / WSL    |
 
-The retrieval commands work without Ollama. Ollama is required only for `ask` and `explain`.
+Retrieval-only commands do not require Ollama.
+
+Ollama is required for functionality that performs local LLM generation, including grounded answering and agent synthesis.
+
+Node.js / npm is required only when using MCP Inspector.
 
 ---
 
-## Installation
+# Installation
 
 Clone the repository:
 
@@ -371,7 +974,7 @@ git clone <repository-url>
 cd knowledge-assistant
 ```
 
-Create the project environment and install dependencies:
+Install dependencies:
 
 ```bash
 uv sync
@@ -391,92 +994,47 @@ Python 3.13.x
 
 ---
 
-## Local LLM Setup
+# Local LLM Setup
 
-The `ask` and `explain` commands use a locally running Ollama model.
+Install and start Ollama.
 
-### Install Ollama on Linux or WSL
-
-If required, install `zstd` first:
-
-```bash
-sudo apt update
-sudo apt install zstd
-```
-
-Install Ollama:
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-Verify the installation:
+Verify:
 
 ```bash
 ollama --version
 ```
 
-### Start Ollama
-
-```bash
-ollama serve
-```
-
-If port `11434` is already in use, an Ollama server may already be running.
-
-Check available models:
-
-```bash
-ollama list
-```
-
-### Download the default model
+Download the configured default model:
 
 ```bash
 ollama pull qwen3:1.7b
 ```
 
-Test it directly:
+Start Ollama:
 
 ```bash
-ollama run qwen3:1.7b
+ollama serve
 ```
 
-Exit the interactive session with:
-
-```text
-/bye
-```
-
-### Ollama process commands
-
-Show currently loaded models:
+Check models:
 
 ```bash
-ollama ps
+ollama list
 ```
-
-Unload the model while keeping the server available:
-
-```bash
-ollama stop qwen3:1.7b
-```
-
-When Ollama was started manually with `ollama serve`, stop the server using `Ctrl+C` in that terminal.
 
 ---
 
-## Configuration
+# Configuration
 
-The application uses typed settings with sensible defaults. Configuration can be overridden through a local `.env` file or environment variables.
+Configuration is validated using Pydantic Settings and can be overridden using `.env` or environment variables.
 
-Copy the example file:
+Create local configuration:
 
 ```bash
 cp .env.example .env
 ```
 
-Example configuration:
+Example:
 
 ```dotenv
 KNOWLEDGE_ASSISTANT_DOCUMENTS__PATH=documents
@@ -501,713 +1059,32 @@ KNOWLEDGE_ASSISTANT_LLM__OLLAMA_HOST=http://localhost:11434
 KNOWLEDGE_ASSISTANT_LLM__TEMPERATURE=0
 ```
 
-Do not commit `.env`. Commit only `.env.example`.
+Never commit `.env`.
 
 ---
 
-## CLI Help
+# Development
 
-Display application-level help:
-
-```bash
-uv run knowledge-assistant --help
-```
-
-Expected command groups:
-
-```text
-ingest
-search
-ask
-explain
-stats
-inspect
-```
-
-Display help for a specific command:
-
-```bash
-uv run knowledge-assistant ingest --help
-```
-
-```bash
-uv run knowledge-assistant search --help
-```
-
-```bash
-uv run knowledge-assistant ask --help
-```
-
-```bash
-uv run knowledge-assistant explain --help
-```
-
-```bash
-uv run knowledge-assistant inspect --help
-```
-
-```bash
-uv run knowledge-assistant evaluate --help
-```
-
-```bash
-uv run knowledge-assistant rebuild --help
-```
-
-```bash
-uv run knowledge-assistant agent --help
-```
-
-```bash
-uv run knowledge-assistant evaluate-agent --details
-```
-
----
-
-## CLI Commands
-
-### Ingest documents
-
-Index the configured default documents directory:
-
-```bash
-uv run knowledge-assistant ingest
-```
-
-Index one file:
-
-```bash
-uv run knowledge-assistant ingest documents/python-basics.md
-```
-
-Index another directory:
-
-```bash
-uv run knowledge-assistant ingest ./my-notes
-```
-
-Ingestion currently rebuilds the configured vector table from the supplied source. Incremental upsert is planned.
-
----
-
-### Ingest documents
-
-The documents ingested are versioned. If the schema_version changes, you can rebuild the store using rebuild command.
-
-```bash
-uv run knowledge-assistant rebuild
-```
-
----
-
-
-### Search documents
-
-Use the configured retrieval strategy:
-
-```bash
-uv run knowledge-assistant search "What is BM25?"
-```
-
-Limit the number of results:
-
-```bash
-uv run knowledge-assistant search \
-"What is BM25?" \
---limit 5
-```
-
-Filter Search by --file or --type
-```bash
-
-uv run knowledge-assistant search \
-"What is least privilege?" \
---file cloud-security.docx
-
-```
-
-Use vector retrieval:
-
-```bash
-uv run knowledge-assistant search \
-"How does the system find text with similar meaning?" \
---strategy vector
-```
-
-Use BM25 retrieval:
-
-```bash
-uv run knowledge-assistant search \
-"CreateSubmissionAsync" \
---strategy bm25
-```
-
-Use hybrid retrieval:
-
-```bash
-uv run knowledge-assistant search \
-"Why is BM25 useful for error codes?" \
---strategy hybrid
-```
-
-Supported strategies:
-
-```text
-vector
-bm25
-hybrid
-```
-
-When `--strategy` is omitted, the application uses the configured strategy.
-
----
-
-### Ask a grounded question
-
-```bash
-uv run knowledge-assistant ask \
-"What is BM25 and when is it useful?"
-```
-
-Filter Ask by --file or --type
-```bash
-
-uv run knowledge-assistant ask \
-"What happens during containment?" \
---type pdf
-```
-
-Specify the maximum number of source chunks:
-
-```bash
-uv run knowledge-assistant ask \
-"What is BM25 and when is it useful?" \
---limit 5
-```
-
-The output contains:
-
-* a generated answer,
-* source chunks,
-* file names,
-* line ranges,
-* retrieval scores,
-* the active LLM provider and model.
-
-Only this command requires the Ollama server.
-
----
-
-### Explain the RAG pipeline
-
-```bash
-uv run knowledge-assistant explain \
-"What is BM25?"
-```
-
-Filter Explain by --file or --type
-```bash
-uv run knowledge-assistant explain \
-"What is unit testing?" \
---type xlsx
-```
-
-The command displays:
-
-* the question,
-* configured models,
-* retrieval method,
-* retrieved chunks,
-* vector distances,
-* BM25 scores,
-* hybrid RRF scores,
-* system prompt,
-* user prompt,
-* final generated answer.
-* Metrics: Application Startup, Pipeline Timings
-
-```text
-
-APPLICATION STARTUP
-------------------------------
-Dependency construction: 2810 ms
-
-PIPELINE TIMINGS
-------------------------------
-Retrieval: 82 ms
-Reranking: 141 ms
-Prompt building: 0.1 ms
-Generation: 2143 ms
-Pipeline total: 2366 ms
-
-```
----
-
-### Verbose Logging
-
-Enable diagnostic logging.
-
-```bash
-knowledge-assistant --verbose <command>
-```
-
-This command is intended for local debugging. It may expose full source content and prompts, so production systems should add redaction before exposing comparable traces.
-
----
-
-### Display index statistics
-
-```bash
-uv run knowledge-assistant stats
-```
-
-Example:
-
-```text
-Table: knowledge_chunks_minilm_v1
-Chunks: 52
-Documents: 8
-Models: sentence-transformers/all-MiniLM-L6-v2
-Dimensions: (384,)
-```
-
-This command does not require Ollama.
-
----
-
-### Inspect indexed chunks
-
-```bash
-uv run knowledge-assistant inspect
-```
-
-Limit output:
-
-```bash
-uv run knowledge-assistant inspect --limit 3
-```
-
-This command displays stored chunk content and citation metadata without running a retrieval query.
-
----
-
-### Interactive Chat
-
-Start a conversational session with:
-
-```bash
-uv run knowledge-assistant chat
-```
-
-Exit using:
-
-exit
-
-or:
-
-quit
-
----
-
-### Evaluate Retrieval
-
-Evaluate all retrieval strategies:
-
-```bash
-uv run knowledge-assistant evaluate
-```
-
-Evaluate one strategy:
-
-```bash
-uv run knowledge-assistant evaluate --strategy hybrid
-```
-
-Evaluate one strategy with the configured reranker. Default Reranking strategy is cross-encoder:
-
-```bash
-uv run knowledge-assistant evaluate --strategy hybrid --rerank
-```
-
-Show detailed per-query results:
-
-```bash
-uv run knowledge-assistant evaluate --details
-uv run knowledge-assistant evaluate --strategy hybrid --rerank --details
-```
-
-Use a custom evaluation dataset:
-
-```bash
-uv run knowledge-assistant evaluate \
-    --dataset evaluations/retrieval.json
-```
-
-## Retrieval Strategies
-
-### Vector retrieval
-
-The query and chunks are represented as embeddings in the same vector space. LanceDB returns chunks with the smallest vector distance.
-
-Best suited to:
-
-* semantic similarity,
-* paraphrased questions,
-* concept-based queries,
-* wording that differs from source documents.
-
-### BM25 retrieval
-
-BM25 performs lexical full-text retrieval over chunk content.
-
-Best suited to:
-
-* exact identifiers,
-* API names,
-* error codes,
-* model names,
-* rare technical terms.
-
-### Hybrid retrieval
-
-Hybrid retrieval executes vector and BM25 retrieval independently and combines their rank positions using Reciprocal Rank Fusion.
-
-```text
-Vector ranked list ─┐
-                    ├── Reciprocal Rank Fusion ── Final ranking
-BM25 ranked list ───┘
-```
-
-RRF avoids directly comparing incompatible raw vector-distance and BM25-score scales.
-
----
-
-## Example Search Output
-
-```text
-1. bm25.md
-Lines: 9-16
-Method: hybrid
-Score: 0.032522
-Vector distance: 0.8421
-BM25 score: 3.1452
-------------------------------------------------------------
-BM25 combines term-frequency and inverse-document-frequency
-signals with document-length normalization.
-```
-
-For vector distance, lower values indicate closer matches.
-
-The hybrid score is an RRF ranking score, not a probability or percentage.
-
----
-
-## Example Grounded Answer
-
-```text
-$ uv run knowledge-assistant ask \
-"What is BM25 and when is it useful?"
-
-BM25 is a lexical retrieval algorithm that is particularly useful
-for exact terms, identifiers, API names, and error codes [Source 1].
-
-Sources:
-
-1. bm25.md
-Lines: 9-16
-Method: hybrid
-...
-
-Generated by: ollama/qwen3:1.7b
-```
-
-Generated answers may paraphrase source text. Every material claim should still be supported by the displayed source context.
-
----
-
-## Example - Agent Runtime
-
-```bash
-uv run knowledge-assistant agent \
-"What is least privilege?" \
---trace
-```
-
-Output
-
-```
-Least privilege ensures users and processes receive only the minimum
-permissions required to perform their intended tasks.
-
-AGENT TRACE
-------------------------------------------------------------
-Step: 1
-Tool: answer_from_documents
-Arguments:
-{
-  "query": "What is least privilege?"
-}
-
-```
----
-
-### Agent Evaluation
-
-Run the default evaluation suite with:
-
-```bash
-uv run knowledge-assistant evaluate-agent
-```
-```text
-Example summary:
-
-Agent Evaluation
-------------------------------------------------------------
-Cases: 3
-Passed: 1
-Failed: 2
-Overall accuracy: 33.3%
-Tool accuracy: 100.0%
-Document accuracy: 100.0%
-Stop reason accuracy: 100.0%
-Grounding accuracy: 33.3%
-
-The evaluation framework inten
-```
----
-
-
-## REST API Help
-
-### REST API
-
-* FastAPI-based HTTP API
-* Shared application layer between CLI and API
-* Application dependencies initialized once during server startup
-* Pydantic request and response validation
-* Automatically generated OpenAPI documentation
-* Swagger UI for interactive endpoint testing
-* Metadata filters supported by retrieval endpoints
-* Local Ollama-based grounded answer generation
-
-### API Endpoints
-
-| Method | Endpoint   | Purpose                        |
-| ------ | ---------- | ------------------------------ |
-| `GET`  | `/health`  | Check API health               |
-| `GET`  | `/stats`   | View vector-index statistics   |
-| `POST` | `/search`  | Search indexed document chunks |
-| `POST` | `/ask`     | Generate a grounded answer     |
-| `POST` | `/ingest`  | Incrementally ingest documents |
-| `POST` | `/rebuild` | Rebuild the complete index     |
-
-### Start the API
-
-Start the API using the project command:
-
-```bash
-uv run knowledge-assistant-api
-```
-
-For development with automatic source-code reload:
-
-```bash
-uv run uvicorn \
-knowledge_assistant.api.app:app \
---host 127.0.0.1 \
---port 8000 \
---reload
-```
-
-The API is available at:
-
-```text
-http://127.0.0.1:8000
-```
-
-Interactive Swagger documentation:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-OpenAPI schema:
-
-```text
-http://127.0.0.1:8000/openapi.json
-```
-
-Stop the server by pressing `Ctrl+C` in the terminal where it is running.
-
-### API Examples
-
-Check API health:
-
-```bash
-curl http://127.0.0.1:8000/health
-```
-
-Search documents:
-
-```bash
-curl -X POST \
-http://127.0.0.1:8000/search \
--H "Content-Type: application/json" \
--d '{
-  "query": "What is least privilege?",
-  "limit": 3,
-  "strategy": "hybrid",
-  "filters": {
-    "source_names": ["cloud-security.docx"]
-  }
-}'
-```
-
-Generate a grounded answer:
-
-```bash
-curl -X POST \
-http://127.0.0.1:8000/ask \
--H "Content-Type: application/json" \
--d '{
-  "query": "What is least privilege?",
-  "limit": 3,
-  "filters": {
-    "extensions": ["docx"]
-  }
-}'
-```
-
-Incrementally ingest the configured document directory:
-
-```bash
-curl -X POST \
-http://127.0.0.1:8000/ingest \
--H "Content-Type: application/json" \
--d '{
-  "path": "documents"
-}'
-```
-
-Rebuild the complete vector index:
-
-```bash
-curl -X POST \
-http://127.0.0.1:8000/rebuild \
--H "Content-Type: application/json" \
--d '{
-  "path": "documents"
-}'
-```
-
-The `/ask` endpoint may take longer than `/search` because it performs retrieval, cross-encoder reranking, prompt construction, and local LLM generation before returning a response.
-
----
-
-## Engineering Decisions
-
-### Local-first architecture
-
-Document loading, chunking, embeddings, vector storage, BM25 retrieval, and rank fusion run locally.
-
-A hosted API key is not required for the current implementation.
-
-### Provider abstractions
-
-`EmbeddingProvider` and `LLMProvider` separate application logic from concrete AI providers.
-
-Planned providers can be introduced without changing the retrieval or answering services.
-
-### Retrieval Strategy Pattern
-
-`Retriever` depends on a `RetrievalStrategy`, allowing vector, BM25, and hybrid implementations to be selected through configuration or a CLI override.
-
-### Dependency injection
-
-Concrete dependencies are created in `bootstrap.py` and passed through constructors.
-
-No dependency-injection framework is used.
-
-### Typed configuration
-
-Pydantic Settings validates configuration and supports defaults, `.env` files, and environment-variable overrides.
-
-### Domain and storage separation
-
-Domain models such as `Chunk` and `Embedding` remain independent of LanceDB. The vector-store adapter creates a denormalized storage representation optimized for retrieval.
-
-### Explainability
-
-The `explain` command exposes retrieval and generation inputs so incorrect answers can be traced to retrieval quality, prompt construction, or model behavior.
-
-### Measuring Retrieval Quality 
-
-Before introducing retrieval improvements such as reranking, the project establishes an offline evaluation framework to measure retrieval quality objectively.
-
-Every retrieval change is evaluated using the same dataset and reproducible Top-1 and Top-k metrics rather than subjective observation.
-
-The current evaluation measures document-level relevance. Some queries may have more than one valid supporting document. A future version will distinguish between:
-
-* any relevant document,
-* preferred or authoritative document,
-* exact supporting chunk.
-
----
-
-## Development Workflow
-
-Run tests
+Run the complete test suite:
 
 ```bash
 uv run pytest
 ```
 
-Run with verbose logging
+Run a focused package:
 
 ```bash
-uv run knowledge-assistant --verbose ask "What is BM25?"
+uv run pytest tests/agent -v
 ```
 
-After modifying the documents or chunking configuration, rebuild the index:
-
-```bash
-uv run knowledge-assistant ingest
-```
-
-Compare retrieval strategies:
-
-```bash
-uv run knowledge-assistant search \
-"Why is BM25 useful for error codes?" \
---strategy vector
-```
-
-```bash
-uv run knowledge-assistant search \
-"Why is BM25 useful for error codes?" \
---strategy bm25
-```
-
-```bash
-uv run knowledge-assistant search \
-"Why is BM25 useful for error codes?" \
---strategy hybrid
-```
-
-Inspect the complete pipeline:
+Inspect a retrieval pipeline:
 
 ```bash
 uv run knowledge-assistant explain \
-"Why is BM25 useful for error codes?"
+    "Why is BM25 useful for error codes?"
 ```
 
-Run retrieval evaluation
-
-```bash
-uv run knowledge-assistant evaluate --strategy hybrid
-```
-
-Run retrieval evaluation with reranking
+Evaluate retrieval:
 
 ```bash
 uv run knowledge-assistant evaluate \
@@ -1215,68 +1092,60 @@ uv run knowledge-assistant evaluate \
     --rerank
 ```
 
----
+Evaluate agent behavior:
 
-## Roadmap
+```bash
+uv run knowledge-assistant evaluate-agent --details
+```
 
-### Completed
+Test MCP integration:
 
-* Local document ingestion
-* Traceable chunking
-* Local embeddings
-* LanceDB vector storage
-* BM25 full-text search
-* Vector retrieval
-* Hybrid retrieval
-* Reciprocal Rank Fusion
-* Retrieval strategy CLI override
-* Typed configuration
-* Constructor-based dependency injection
-* Grounded answer generation
-* Ollama integration
-* Source citations
-* Explainable RAG traces
-* CLI operations
-* Retrieval evaluation dataset
-* Top-1 and Top-k retrieval metrics
-* Configurable evaluation dataset
-* Strategy comparison (Vector, BM25, Hybrid)
-* Cross-encoder reranking
-* Before-and-after evaluation reports
-* Structured logging
-* Startup metrics
-* Pipeline latency metrics
-* Unit test suite
-* PDF, Excel and Word support
-* Incremental document ingestion
-* Metadata filtering
-* Structure-Aware chunking
-* Shared CLI and REST application layer
-* FastAPI lifecycle-based dependency initialization
-* Health and index-statistics endpoints
-* Search endpoint with strategy and metadata filters
-* Grounded question-answering endpoint
-* Incremental ingestion endpoint
-* Full-index rebuild endpoint
-* OpenAPI and Swagger documentation
-* Agentic workflows
-* Evidence-backed answer synthesis
-* Independent NLI-based grounding validation
-* Full execution trace
-* Canonical source citations
-* Bounded multi-turn conversation context and interactive CLI chat
-* Agent Evaluation
-
+```bash
+uv run mcp dev src/knowledge_assistant/mcp/server.py
+```
 
 ---
 
-## Git Hygiene
+# Known Limitations
+
+The current implementation is intentionally optimized for learning, local execution, and architectural transparency rather than low-latency production serving.
+
+Current limitations include:
+
+* Local LLM execution can be slow on CPU-constrained environments.
+* Grounding validation is conservative and may reject valid paraphrases.
+* Conversation history is session-local and bounded.
+* Follow-up query resolution is planner-driven and may occasionally require more explicit wording.
+* MCP currently exposes core knowledge capabilities rather than the complete agent runtime.
+* Authentication, authorization, rate limiting, and distributed deployment are outside the current scope.
+* Verbose diagnostic traces are not redacted for production use.
+
+---
+
+# Future Work
+
+Potential extensions include:
+
+* Streaming API and agent responses
+* Persistent conversation memory
+* Semantic / episodic memory
+* Stronger grounding and claim verification models
+* Agent evaluation datasets at larger scale
+* Authentication and authorization
+* Distributed retrieval / storage
+* Full agent exposure through MCP
+* Multi-agent workflows
+
+---
+
+# Git Hygiene
 
 Commit:
 
 ```text
 src/
 documents/
+evaluations/
 tests/
 pyproject.toml
 uv.lock
@@ -1298,7 +1167,7 @@ __pycache__/
 .idea/
 ```
 
-The vector database is a generated artifact and can be recreated with:
+Generated vector indexes can be recreated with:
 
 ```bash
 uv run knowledge-assistant ingest
@@ -1306,6 +1175,6 @@ uv run knowledge-assistant ingest
 
 ---
 
-## License
+# License
 
 MIT

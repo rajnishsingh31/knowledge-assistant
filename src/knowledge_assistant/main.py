@@ -23,7 +23,6 @@ from knowledge_assistant.config import Settings, get_settings
 from knowledge_assistant.application import (
     KnowledgeAssistantApplication,
 )
-from knowledge_assistant.bootstrap import create_application
 from knowledge_assistant.models import RetrievalFilter, StartupTimings
 
 from knowledge_assistant.agent.formatting import (
