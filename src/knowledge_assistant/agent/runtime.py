@@ -29,6 +29,9 @@ from knowledge_assistant.agent.evidence import (
 from knowledge_assistant.llm.grounding_validator import (
     GroundingValidator,
 )
+from knowledge_assistant.conversation import (
+    ConversationHistory,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -56,9 +59,22 @@ class AgentRuntime:
         self._grounding_validator = grounding_validator
         self._max_iterations = max_iterations
 
+    def _record_conversation(
+        self,
+        history: ConversationHistory | None,
+        query: str,
+        answer: str,
+    ) -> None:
+        if history is None:
+            return
+
+        history.append_user(query)
+        history.append_assistant(answer)
+
     def run(
         self,
         query: str,
+        history: ConversationHistory | None = None,
     ) -> AgentResponse:
         normalized_query = query.strip()
 
@@ -72,6 +88,11 @@ class AgentRuntime:
         context = AgentContext(
             query=normalized_query,
             steps=(),
+            conversation=(
+                history.messages
+                if history is not None
+                else ()
+            ),
         )
 
         for iteration_number in range(
@@ -135,9 +156,16 @@ class AgentRuntime:
                         tool_result=None,
                         )
                 )
-                
+
+               
                 # Direct conversational response with no tool evidence.
                 if not context.steps:
+                    self._record_conversation(
+                        history=history,
+                        query=normalized_query,
+                        answer=decision.answer,
+                    )
+
                     return AgentResponse(
                         query=normalized_query,
                         answer=decision.answer,
@@ -153,6 +181,7 @@ class AgentRuntime:
                     context=context,
                     iterations=tuple(iterations),
                     stop_reason="final_answer",
+                    history=history,
                 )
 
             if not isinstance(
@@ -186,6 +215,7 @@ class AgentRuntime:
                     context=context,
                     iterations=tuple(iterations),
                     stop_reason="repeated_tool_call",
+                    history=history,
                 )
 
             tool_result = self._tool_registry.execute(
@@ -210,12 +240,14 @@ class AgentRuntime:
             context = AgentContext(
                 query=context.query,
                 steps=context.steps + (step,),
+                conversation=context.conversation,
             )
 
         return self._finish_from_observations(
             context=context,
             iterations=tuple(iterations),
             stop_reason="max_iterations",
+            history=history,
         )
 
     def _finish_from_observations(
@@ -223,6 +255,7 @@ class AgentRuntime:
         context: AgentContext,
         iterations: tuple[AgentIteration, ...],
         stop_reason: str,
+        history: ConversationHistory | None = None,
     ) -> AgentResponse:
         if not context.steps:
             raise RuntimeError(
@@ -272,6 +305,12 @@ class AgentRuntime:
         grounding_trace = GroundingValidationTrace(
             is_grounded=grounding_result.is_grounded,
             claims=grounding_result.claims,
+        )
+
+        self._record_conversation(
+            history=history,
+            query=context.query,
+            answer=final_answer,
         )
 
         return AgentResponse(

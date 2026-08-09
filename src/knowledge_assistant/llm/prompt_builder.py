@@ -1,8 +1,6 @@
 from knowledge_assistant.models import RetrievedContext
 from knowledge_assistant.llm.models import Prompt
 
-
-
 class PromptBuilder:
     """Build a grounded question-answering prompt."""
 

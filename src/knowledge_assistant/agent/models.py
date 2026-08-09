@@ -1,6 +1,9 @@
 from dataclasses import dataclass, field
 from typing import Any, Literal
 from knowledge_assistant.llm.models import GroundingClaimResult
+from knowledge_assistant.conversation.models import (
+    ConversationMessage,
+)
 
 
 AgentToolName = Literal[
@@ -103,6 +106,7 @@ class AgentContext:
 
     query: str
     steps: tuple[AgentStep, ...]
+    conversation: tuple[ConversationMessage, ...] = ()
 
     @property
     def next_step_number(self) -> int:
